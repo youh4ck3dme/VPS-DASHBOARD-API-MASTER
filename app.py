@@ -24,19 +24,19 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# Vytvor logs adresár ak neexistuje (pred konfiguráciou logovania)
+os.makedirs('logs', exist_ok=True)
+
 # Nastavenie logovania
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/app.log') if os.path.exists('logs') else logging.StreamHandler(),
+        logging.FileHandler('logs/app.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
-
-# Vytvor logs adresár ak neexistuje
-os.makedirs('logs', exist_ok=True)
 
 try:
     redis_client = redis.StrictRedis.from_url(app.config['REDIS_URL'], decode_responses=True)
@@ -928,6 +928,10 @@ def api_project_detail(project_id):
     if project.user_id != current_user.id:
         return jsonify({'error': 'Unauthorized'}), 403
 
+    # Použijeme efektívne počítanie pomocou query namiesto len() na relationship
+    payments_count = db.session.query(Payment).filter_by(project_id=project.id).count()
+    automations_count = db.session.query(Automation).filter_by(project_id=project.id).count()
+    
     return jsonify({
         'id': project.id,
         'name': project.name,
@@ -935,8 +939,8 @@ def api_project_detail(project_id):
         'is_active': project.is_active,
         'script_path': project.script_path,
         'created_at': project.created_at.isoformat(),
-        'payments_count': len(project.payments),
-        'automations_count': len(project.automation)
+        'payments_count': payments_count,
+        'automations_count': automations_count
     })
 
 # --- ERROR HANDLERS ---
