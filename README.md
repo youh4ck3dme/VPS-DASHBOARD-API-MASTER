@@ -33,6 +33,7 @@ Kompletný VPS API Dashboard s podporou platieb, automatizácií a AI generovani
 - **API Dokumentácia** - Automatická dokumentácia API endpointov
 - **Rate Limiting** - Ochrana API proti zneužitiu (60 req/min)
 - **Rozšírené logovanie** - File-based logging pre debugging
+- **Health & API docs** - `/health` / `/api/health` + `/api/docs`
 
 ## Architektúra projektu
 
@@ -221,8 +222,10 @@ sudo ufw status
 # Urob backup skript spustiteľný
 chmod +x backup_db.sh
 
-# Uprav heslo v backup_db.sh
-nano backup_db.sh
+# ⚠️ Skript automaticky načíta konfiguráciu z .env súboru
+# Pre MySQL: nastav DATABASE_URL v .env
+# Pre SQLite: DATABASE_URL="sqlite:///app.db" (predvolené)
+# Pozri BACKUP_README.md pre detailnú dokumentáciu
 
 # Pridaj cron joby
 crontab -e
@@ -353,17 +356,42 @@ tail -f /var/log/nginx/api_dashboard_error.log
 tail -f /var/www/api_dashboard/logs/cron_check.log
 ```
 
-### Manuálna záloha databázy
+### Zálohovanie databázy
+
+> 📖 **Pozri [BACKUP_README.md](BACKUP_README.md) pre kompletnú dokumentáciu zálohovania**
+
+**Rýchly prehľad:**
 
 ```bash
-/var/www/api_dashboard/backup_db.sh
+# Manuálna záloha (automaticky detekuje SQLite/MySQL z DATABASE_URL)
+./backup_db.sh
+
+# Automatické denné zálohovanie (cron)
+0 3 * * * /var/www/api_dashboard/backup_db.sh
 ```
 
-### Obnova zo zálohy
+**Funkcie:**
+- ✅ Automatická detekcia typu databázy (SQLite/MySQL)
+- ✅ Podpora environment variables
+- ✅ Automatická kompresia a mazanie starých záloh
+- ✅ Detailné logovanie
+
+**Obnova zálohy:**
+- **SQLite**: `gunzip backup.db.gz && cp backup.db app.db`
+- **MySQL**: `gunzip backup.sql.gz && mysql -u root -p dbname < backup.sql`
+
+Pozri [BACKUP_README.md](BACKUP_README.md) pre detailné inštrukcie.
+
+### Monitoring a API dokumentácia
 
 ```bash
-gunzip /var/www/api_dashboard/backups/db_backup_2025-01-15.sql.gz
-mysql -u root -p api_dashboard < /var/www/api_dashboard/backups/db_backup_2025-01-15.sql
+# Health check (JSON)
+curl -X GET http://localhost:6002/health
+# alebo
+curl -X GET http://localhost:6002/api/health
+
+# API dokumentácia (základný prehľad endpointov)
+curl -X GET http://localhost:6002/api/docs
 ```
 
 ### Aktualizácia aplikácie

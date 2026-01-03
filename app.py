@@ -4,8 +4,8 @@ import pymysql
 pymysql.install_as_MySQLdb()
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, DecimalField, BooleanField
-from wtforms.validators import DataRequired, Email, Length, EqualTo
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, DecimalField
+from wtforms.validators import DataRequired
 from config import Config
 import subprocess
 import os
@@ -22,7 +22,7 @@ app.config.from_object(Config)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'login'  # type: ignore[assignment]
 
 # Vytvor logs adresár ak neexistuje (pred konfiguráciou logovania)
 os.makedirs('logs', exist_ok=True)
@@ -40,10 +40,11 @@ logger = logging.getLogger(__name__)
 
 try:
     redis_client = redis.StrictRedis.from_url(app.config['REDIS_URL'], decode_responses=True)
-    redis_client.ping()
+    redis_client.ping()  # type: ignore[union-attr]
+    logger.info("Redis pripojenie úspešné")
 except Exception as e:
-    print(f"Redis connection warning: {e}")
-    redis_client = None
+    logger.warning(f"Redis connection warning: {e}")
+    redis_client = None  # type: ignore[assignment]
 
 # --- STRIPE ---
 if app.config['STRIPE_SECRET_KEY']:
@@ -121,6 +122,27 @@ class AIRequest(db.Model):
     response = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class CarDeal(db.Model):
+    __tablename__ = 'car_deals'
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    price = db.Column(db.Numeric(10, 2), nullable=False)
+    market_value = db.Column(db.Numeric(10, 2))
+    profit = db.Column(db.Numeric(10, 2))
+    verdict = db.Column(db.String(20))  # KÚPIŤ, NEKUPOVAŤ, RIZIKO
+    risk_level = db.Column(db.String(20))  # Nízke, Stredné, Vysoké
+    reason = db.Column(db.Text)
+    source = db.Column(db.String(100))  # Bazoš.sk, Autobazar.eu, atď.
+    link = db.Column(db.String(500))
+    description = db.Column(db.Text)
+    image_url = db.Column(db.String(500))
+    ai_analysis = db.Column(db.Text)  # JSON s AI analýzou
+    is_viewed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    project = db.relationship('Project', backref='car_deals')
+
 # --- FORMULÁRE ---
 class LoginForm(FlaskForm):
     username = StringField('Užívateľské meno', validators=[DataRequired()])
@@ -172,6 +194,43 @@ def load_user(user_id):
 @login_required
 def dashboard():
     """Hlavný dashboard zobrazujúci všetky projekty používateľa"""
+    # Rate limiting check pred databázovými dotazmi
+    if redis_client:
+        try:
+            key = f"rate_limit:{request.remote_addr}:dashboard"
+            current = redis_client.get(key)
+            if current and int(current) >= 60:  # 60 requests per minute
+                flash('Príliš veľa požiadavok. Skús to neskôr.', 'warning')
+                return redirect(url_for('dashboard')), 429
+            redis_client.incr(key)
+            redis_client.expire(key, 60)
+        except Exception:
+            pass  # Ak Redis zlyhá, pokračuj bez rate limiting
+    
+    # 1. AUTOMATICKÉ VYTVORENIE CARSCRAPER PRO PROJEKTU
+    carscraper_project = Project.query.filter_by(
+        user_id=current_user.id,
+        name='CarScraper Pro'
+    ).first()
+    
+    if not carscraper_project:
+        try:
+            # type: ignore[call-arg]
+            carscraper_project = Project(
+                name='CarScraper Pro',  # type: ignore[arg-type]
+                api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
+                user_id=current_user.id,  # type: ignore[arg-type]
+                is_active=True  # type: ignore[arg-type]
+            )
+            db.session.add(carscraper_project)
+            db.session.commit()
+            flash('CarScraper Pro projekt bol automaticky vytvorený!', 'info')
+            logger.info(f'CarScraper Pro projekt vytvorený pre používateľa {current_user.id}')
+        except Exception as e:
+            logger.error(f'Chyba pri vytváraní CarScraper Pro projektu: {e}')
+            db.session.rollback()
+            carscraper_project = None
+    
     # Paginácia
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -193,6 +252,36 @@ def dashboard():
     total_payments = Payment.query.join(Project).filter(Project.user_id == current_user.id).count()
     total_automations = Automation.query.join(Project).filter(Project.user_id == current_user.id).count()
     
+    # CarScraper Pro štatistiky
+    carscraper_stats = None
+    carscraper_top_deals = []
+    
+    if carscraper_project:
+        try:
+            total_deals = CarDeal.query.filter_by(project_id=carscraper_project.id).count()
+            good_deals = CarDeal.query.filter_by(project_id=carscraper_project.id, verdict='KÚPIŤ').count()
+            from sqlalchemy import func
+            total_profit_result = db.session.query(func.sum(CarDeal.profit)).filter(
+                CarDeal.project_id == carscraper_project.id,
+                CarDeal.verdict == 'KÚPIŤ'
+            ).scalar()
+            total_profit = float(total_profit_result) if total_profit_result else 0.0
+            
+            carscraper_stats = {
+                'total_deals': total_deals,
+                'good_deals': good_deals,
+                'total_profit': total_profit,
+                'success_rate': round((good_deals / total_deals * 100) if total_deals > 0 else 0, 2)
+            }
+            
+            # Top 5 deals (najnovšie, verdict='KÚPIŤ')
+            carscraper_top_deals = CarDeal.query.filter_by(
+                project_id=carscraper_project.id,
+                verdict='KÚPIŤ'
+            ).order_by(CarDeal.created_at.desc()).limit(5).all()
+        except Exception as e:
+            logger.error(f'Chyba pri získavaní CarScraper štatistík: {e}')
+    
     stats = {
         'total_projects': total_projects,
         'active_projects': active_projects,
@@ -200,7 +289,15 @@ def dashboard():
         'total_automations': total_automations
     }
     
-    return render_template('dashboard.html', projects=projects, stats=stats, search=search)
+    return render_template(
+        'dashboard.html',
+        projects=projects,
+        stats=stats,
+        search=search,
+        carscraper_project=carscraper_project,
+        carscraper_stats=carscraper_stats,
+        carscraper_top_deals=carscraper_top_deals
+    )
 
 @app.route('/projects', methods=['GET', 'POST'])
 @login_required
@@ -208,11 +305,12 @@ def projects():
     """Správa projektov - vytvorenie nového projektu"""
     form = ProjectForm()
     if form.validate_on_submit():
+        # type: ignore[call-arg]
         new_project = Project(
-            name=form.name.data,
-            api_key=os.urandom(24).hex(),
-            script_path=form.script_path.data,
-            user_id=current_user.id
+            name=form.name.data,  # type: ignore[arg-type]
+            api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
+            script_path=form.script_path.data,  # type: ignore[arg-type]
+            user_id=current_user.id  # type: ignore[arg-type]
         )
         db.session.add(new_project)
         db.session.commit()
@@ -266,16 +364,21 @@ def payments(project_id):
 
             try:
                 # Vytvor platobný intent
+                amount_value = form.amount.data
+                if amount_value is None:
+                    flash('Neplatná suma!', 'danger')
+                    return redirect(url_for('payments', project_id=project_id))
                 intent = stripe.PaymentIntent.create(
-                    amount=int(float(form.amount.data) * 100),  # Stripe počíta v centoch
+                    amount=int(float(amount_value) * 100),  # Stripe počíta v centoch
                     currency='eur',
                     metadata={'project_id': project_id}
                 )
+                # type: ignore[call-arg]
                 new_payment = Payment(
-                    project_id=project_id,
-                    amount=form.amount.data,
-                    gateway='stripe',
-                    transaction_id=intent.id
+                    project_id=project_id,  # type: ignore[arg-type]
+                    amount=amount_value,  # type: ignore[arg-type]
+                    gateway='stripe',  # type: ignore[arg-type]
+                    transaction_id=intent.id  # type: ignore[arg-type]
                 )
                 db.session.add(new_payment)
                 db.session.commit()
@@ -305,10 +408,11 @@ def automation(project_id):
 
     form = AutomationForm()
     if form.validate_on_submit():
+        # type: ignore[call-arg]
         new_automation = Automation(
-            project_id=project_id,
-            script_name=form.script_name.data,
-            schedule=form.schedule.data
+            project_id=project_id,  # type: ignore[arg-type]
+            script_name=form.script_name.data,  # type: ignore[arg-type]
+            schedule=form.schedule.data  # type: ignore[arg-type]
         )
         db.session.add(new_automation)
         db.session.commit()
@@ -342,20 +446,22 @@ def ai(project_id):
             http_client = httpx.Client(trust_env=False)
             client = OpenAI(api_key=app.config['OPENAI_API_KEY'], http_client=http_client)
 
+            prompt_content = form.prompt.data or ""
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "user", "content": form.prompt.data}
+                    {"role": "user", "content": prompt_content}
                 ],
                 max_tokens=200
             )
 
             ai_response = response.choices[0].message.content
 
+            # type: ignore[call-arg]
             ai_request = AIRequest(
-                project_id=project_id,
-                prompt=form.prompt.data,
-                response=ai_response
+                project_id=project_id,  # type: ignore[arg-type]
+                prompt=prompt_content,  # type: ignore[arg-type]
+                response=ai_response  # type: ignore[arg-type]
             )
             db.session.add(ai_request)
             db.session.commit()
@@ -382,18 +488,10 @@ def login():
             try:
                 user = User.query.filter_by(username=username).first()
 
-                # Kontrola hesla - podporuje aj staré nehashované heslá aj nové hashované
+                # Kontrola hesla
                 if user:
-                    # Ak je heslo nehashované (backward compatibility)
-                    if user.password == password:
-                        # Automaticky zahashuj heslo pri najbližšom prihlásení
-                        user.set_password(password)
-                        db.session.commit()
-                        login_user(user)
-                        flash('Úspešne prihlásený! Heslo bolo automaticky zahashované.', 'success')
-                        return redirect(url_for('dashboard'))
-                    # Ak je heslo hashované
-                    elif user.check_password(password):
+                    # Skontroluj hashované heslo
+                    if user.check_password(password):
                         login_user(user)
                         flash('Úspešne prihlásený!', 'success')
                         return redirect(url_for('dashboard'))
@@ -600,15 +698,16 @@ def settings():
             flash('Staré heslo je nesprávne!', 'danger')
             return redirect(url_for('settings'))
         
-        if form.new_password.data != form.confirm_password.data:
+        new_password = form.new_password.data
+        if not new_password or new_password != form.confirm_password.data:
             flash('Nové heslá sa nezhodujú!', 'danger')
             return redirect(url_for('settings'))
         
-        if len(form.new_password.data) < 6:
+        if len(new_password) < 6:
             flash('Nové heslo musí mať aspoň 6 znakov!', 'danger')
             return redirect(url_for('settings'))
         
-        current_user.set_password(form.new_password.data)
+        current_user.set_password(new_password)
         db.session.commit()
         logger.info(f'User {current_user.id} changed password')
         flash('Heslo bolo úspešne zmenené!', 'success')
@@ -669,7 +768,7 @@ def regenerate_api_key(project_id):
         flash('Nemáš oprávnenie!', 'danger')
         return redirect(url_for('dashboard'))
     
-    old_key = project.api_key
+    # old_key = project.api_key  # Uložené pre logovanie ak by bolo potrebné
     project.api_key = os.urandom(24).hex()
     db.session.commit()
     logger.info(f'API key regenerated for project {project_id} by user {current_user.id}')
@@ -734,11 +833,34 @@ def export_payments():
 def favicon():
     """Serve favicon from root path"""
     from flask import send_from_directory
-    return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/x-icon')
+    static_folder = app.static_folder
+    if static_folder is None:
+        return '', 404
+    return send_from_directory(static_folder, 'favicon.ico', mimetype='image/x-icon')
 
+@app.route('/carscraper')
+@app.route('/carscraper/<path:path>')
+def carscraper_frontend(path='index.html'):
+    """Serve CarScraper Pro React frontend"""
+    from flask import send_from_directory
+    static_folder = app.static_folder
+    if static_folder is None:
+        return redirect(url_for('dashboard'))
+    frontend_dir = os.path.join(static_folder, 'carscraper')
+    if not os.path.exists(frontend_dir):
+        return redirect(url_for('dashboard'))
+    return send_from_directory(frontend_dir, path)
+
+# Health endpoints sú definované nižšie (lines 1005-1047)
+# Táto duplicitná definícia bola odstránená aby sa predišlo konfliktu
+
+# Debug route len pre development
 @app.route('/debug')
 def debug():
-    """Debug page to test if Flask is working"""
+    """Debug page to test if Flask is working (len v development režime)"""
+    if not app.config.get('FLASK_DEBUG', False):
+        return redirect(url_for('login'))
+    
     return '''
     <!DOCTYPE html>
     <html>
@@ -758,6 +880,7 @@ def debug():
             <p><strong>Server time:</strong> <span class="time" id="time"></span></p>
             <p><strong>Port:</strong> 6002</p>
             <p><strong>Status:</strong> Active</p>
+            <p><strong>Mode:</strong> Development (DEBUG enabled)</p>
             <br>
             <a href="/login" style="background: blue; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Go to Login</a>
         </div>
@@ -901,7 +1024,11 @@ def health_check():
     else:
         health_status['services']['openai'] = 'not configured'
     
-    status_code = 200 if health_status['status'] == 'healthy' else 503
+    # Vráť 200 pre healthy aj degraded (monitoring systémy očakávajú 200)
+    # 503 len ak je kritická chyba (napr. databáza úplne nefunguje)
+    status_code = 200
+    if health_status['status'] == 'degraded' and health_status['services'].get('database', '').startswith('error'):
+        status_code = 503
     return jsonify(health_status), status_code
 
 # --- API ENDPOINTS ---
@@ -943,6 +1070,181 @@ def api_project_detail(project_id):
         'automations_count': automations_count
     })
 
+# --- CARSCRAPER PRO API ---
+@app.route('/api/carscraper/deals', methods=['GET'])
+@login_required
+@rate_limit(max_per_minute=60)
+def get_car_deals():
+    """Získanie zoznamu car deals pre používateľa"""
+    try:
+        project = Project.query.filter_by(user_id=current_user.id, name='CarScraper Pro').first()
+        if not project:
+            return jsonify({'error': 'CarScraper Pro projekt nebol nájdený'}), 404
+        
+        # Filtre
+        verdict = request.args.get('verdict')
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+        
+        query = CarDeal.query.filter_by(project_id=project.id)
+        
+        if verdict:
+            query = query.filter_by(verdict=verdict)
+        
+        deals = query.order_by(CarDeal.created_at.desc()).limit(limit).offset(offset).all()
+        
+        return jsonify({
+            'deals': [{
+                'id': deal.id,
+                'title': deal.title,
+                'price': float(deal.price),
+                'market_value': float(deal.market_value) if deal.market_value else None,
+                'profit': float(deal.profit) if deal.profit else None,
+                'verdict': deal.verdict,
+                'risk_level': deal.risk_level,
+                'reason': deal.reason,
+                'source': deal.source,
+                'link': deal.link,
+                'image_url': deal.image_url,
+                'description': deal.description,
+                'is_viewed': deal.is_viewed,
+                'created_at': deal.created_at.isoformat() if deal.created_at else None
+            } for deal in deals],
+            'total': query.count(),
+            'limit': limit,
+            'offset': offset
+        })
+    except Exception as e:
+        logger.error(f"Error getting car deals: {e}")
+        return jsonify({'error': 'Chyba pri získavaní deals'}), 500
+
+@app.route('/api/carscraper/deals/<int:deal_id>', methods=['GET'])
+@login_required
+@rate_limit(max_per_minute=60)
+def get_car_deal(deal_id):
+    """Získanie detailu car deal"""
+    try:
+        project = Project.query.filter_by(user_id=current_user.id, name='CarScraper Pro').first()
+        if not project:
+            return jsonify({'error': 'CarScraper Pro projekt nebol nájdený'}), 404
+        
+        deal = CarDeal.query.filter_by(id=deal_id, project_id=project.id).first()
+        if not deal:
+            return jsonify({'error': 'Deal nebol nájdený'}), 404
+        
+        # Označ ako videný
+        deal.is_viewed = True
+        db.session.commit()
+        
+        return jsonify({
+            'id': deal.id,
+            'title': deal.title,
+            'price': float(deal.price),
+            'market_value': float(deal.market_value) if deal.market_value else None,
+            'profit': float(deal.profit) if deal.profit else None,
+            'verdict': deal.verdict,
+            'risk_level': deal.risk_level,
+            'reason': deal.reason,
+            'source': deal.source,
+            'link': deal.link,
+            'image_url': deal.image_url,
+            'description': deal.description,
+            'ai_analysis': deal.ai_analysis,
+            'is_viewed': deal.is_viewed,
+            'created_at': deal.created_at.isoformat() if deal.created_at else None
+        })
+    except Exception as e:
+        logger.error(f"Error getting car deal: {e}")
+        return jsonify({'error': 'Chyba pri získavaní deal'}), 500
+
+@app.route('/api/carscraper/stats', methods=['GET'])
+@login_required
+@rate_limit(max_per_minute=60)
+def get_carscraper_stats():
+    """Získanie štatistík CarScraper Pro"""
+    try:
+        project = Project.query.filter_by(user_id=current_user.id, name='CarScraper Pro').first()
+        if not project:
+            return jsonify({'error': 'CarScraper Pro projekt nebol nájdený'}), 404
+        
+        total_deals = CarDeal.query.filter_by(project_id=project.id).count()
+        good_deals = CarDeal.query.filter_by(project_id=project.id, verdict='KÚPIŤ').count()
+        from sqlalchemy import func
+        total_profit_result = db.session.query(func.sum(CarDeal.profit)).filter(
+            CarDeal.project_id == project.id,
+            CarDeal.verdict == 'KÚPIŤ'
+        ).scalar()
+        total_profit = float(total_profit_result) if total_profit_result else 0.0
+        
+        return jsonify({
+            'total_deals': total_deals,
+            'good_deals': good_deals,
+            'total_profit': float(total_profit),
+            'success_rate': round((good_deals / total_deals * 100) if total_deals > 0 else 0, 2)
+        })
+    except Exception as e:
+        logger.error(f"Error getting stats: {e}")
+        return jsonify({'error': 'Chyba pri získavaní štatistík'}), 500
+
+@app.route('/api/carscraper/scrape', methods=['POST'])
+@login_required
+@rate_limit(max_per_minute=10)
+def run_carscraper_scraping():
+    """Manuálne spustenie scraping pre CarScraper Pro"""
+    try:
+        project = Project.query.filter_by(user_id=current_user.id, name='CarScraper Pro').first()
+        if not project:
+            return jsonify({'error': 'CarScraper Pro projekt nebol nájdený'}), 404
+        
+        if not project.is_active:
+            return jsonify({'error': 'CarScraper Pro projekt nie je aktívny'}), 400
+        
+        # Import scraping funkcií
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(__file__), 'scripts')
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        
+        from car_scraper import scrape_bazos, save_deals_to_db
+        
+        # Spusti scraping
+        logger.info(f'Spúšťam scraping pre používateľa {current_user.id}')
+        listings = scrape_bazos()
+        
+        if not listings:
+            return jsonify({
+                'status': 'warning',
+                'message': 'Žiadne inzeráty na spracovanie',
+                'deals_found': 0,
+                'deals_saved': 0
+            })
+        
+        # Ulož deals
+        saved_count = save_deals_to_db(listings, project.id)
+        
+        logger.info(f'Scraping dokončený: {len(listings)} nájdených, {saved_count} uložených')
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Scraping dokončený úspešne',
+            'deals_found': len(listings),
+            'deals_saved': saved_count
+        })
+    except Exception as e:
+        logger.error(f'Chyba pri scraping: {e}', exc_info=True)
+        return jsonify({'error': f'Chyba pri scraping: {str(e)}'}), 500
+
+@app.route('/carscraper/run-scraping', methods=['GET'])
+@login_required
+def carscraper_run_scraping_page():
+    """Stránka pre manuálne spustenie scraping"""
+    project = Project.query.filter_by(user_id=current_user.id, name='CarScraper Pro').first()
+    if not project:
+        flash('CarScraper Pro projekt nebol nájdený', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('carscraper/run_scraping.html', project=project)
+
 # --- ERROR HANDLERS ---
 @app.errorhandler(404)
 def not_found_error(error):
@@ -974,18 +1276,107 @@ def rate_limit_error(error):
     flash('Príliš veľa požiadavok. Skús to neskôr.', 'warning')
     return redirect(request.referrer or url_for('dashboard')), 429
 
+# --- AUTOMATICKÉ SCRAPING (Background Task) ---
+def auto_scrape_carscraper():
+    """Automatické spustenie scraping každých 60 sekúnd"""
+    try:
+        with app.app_context():
+            # Nájdeme všetky aktívne CarScraper Pro projekty
+            projects = Project.query.filter_by(name='CarScraper Pro', is_active=True).all()
+            
+            if not projects:
+                logger.info('Žiadne aktívne CarScraper Pro projekty na scraping')
+                return
+            
+            # Import scraping funkcií
+            import sys
+            scripts_dir = os.path.join(os.path.dirname(__file__), 'scripts')
+            if scripts_dir not in sys.path:
+                sys.path.insert(0, scripts_dir)
+            
+            from car_scraper import scrape_bazos, save_deals_to_db
+            
+            # Obnov proxy pool každých 10 scrapingov (každých ~10 minút)
+            if not hasattr(auto_scrape_carscraper, '_scrape_count'):
+                auto_scrape_carscraper._scrape_count = 0
+            
+            auto_scrape_carscraper._scrape_count += 1
+            if auto_scrape_carscraper._scrape_count % 10 == 0:
+                try:
+                    from utils.proxy_manager import get_proxy_manager
+                    proxy_manager = get_proxy_manager()
+                    proxy_manager.refresh_proxy_pool()
+                    logger.info('🔄 Proxy pool automaticky obnovený')
+                except Exception as e:
+                    logger.debug(f'Chyba pri obnovovaní proxy pool: {e}')
+            
+            for project in projects:
+                try:
+                    logger.info(f'Automatický scraping pre projekt {project.id} (používateľ {project.user_id})')
+                    listings = scrape_bazos()
+                    
+                    if listings:
+                        saved = save_deals_to_db(listings, project.id)
+                        logger.info(f'Automatický scraping dokončený: {len(listings)} nájdených, {saved} uložených pre projekt {project.id}')
+                    else:
+                        logger.info(f'Žiadne inzeráty nájdené pre projekt {project.id}')
+                except Exception as e:
+                    logger.error(f'Chyba pri automatickom scraping pre projekt {project.id}: {e}', exc_info=True)
+    except Exception as e:
+        logger.error(f'Chyba pri automatickom scraping: {e}', exc_info=True)
+
+# Spusti background thread pre automatické scraping
+import threading
+import time
+
+def background_scraper():
+    """Background thread pre automatické scraping každých 60 sekúnd"""
+    # Počkaj 10 sekúnd po štarte (aby sa server spustil)
+    time.sleep(10)
+    
+    while True:
+        try:
+            auto_scrape_carscraper()
+            time.sleep(60)  # 60 sekúnd (1 minúta)
+        except Exception as e:
+            logger.error(f'Chyba v background scraper thread: {e}', exc_info=True)
+            time.sleep(60)  # Počkaj minútu pred ďalším pokusom
+
+# Spusti background thread len ak nie sme v testovacom režime
+if not os.environ.get('TESTING'):
+    scraper_thread = threading.Thread(target=background_scraper, daemon=True)
+    scraper_thread.start()
+    logger.info('✅ Background scraper thread spustený (každých 60 sekúnd)')
+    
+    # Spusti proxy refresher (automatické obnovovanie free proxy každých 30 minút)
+    try:
+        from utils.proxy_manager import get_proxy_manager
+        from utils.proxy_refresher import start_proxy_refresher
+        proxy_manager = get_proxy_manager()
+        start_proxy_refresher(proxy_manager, interval_minutes=30)
+        logger.info('✅ Proxy refresher spustený (obnovovanie každých 30 minút)')
+    except Exception as e:
+        logger.debug(f'Proxy refresher nie je dostupný: {e}')
+
 # --- INICIALIZÁCIA ---
 if __name__ == '__main__':
     try:
         with app.app_context():
             db.create_all()
-            print("✅ Databáza bola inicializovaná!")
+            logger.info("✅ Databáza bola inicializovaná!")
     except Exception as e:
-        print(f"❌ Chyba databázy: {e}")
-        print("🚀 Spúšťam server bez databázy...")
+        logger.error(f"❌ Chyba databázy: {e}")
+        logger.warning("🚀 Spúšťam server bez databázy...")
 
     port = app.config.get('PORT', 6002)
-    debug = app.config.get('FLASK_DEBUG', True)
-    print(f"🚀 Server beží na http://0.0.0.0:{port}")
-    print(f"📝 Debug mode: {debug}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    debug_value = app.config.get('FLASK_DEBUG', False)
+    # Explicitne konvertuj na bool pre type checker
+    if isinstance(debug_value, bool):
+        debug_bool: bool = debug_value
+    elif isinstance(debug_value, str):
+        debug_bool = debug_value.lower() in ('true', '1', 'yes', 'on')
+    else:
+        debug_bool = bool(debug_value)
+    logger.info(f"🚀 Server beží na http://0.0.0.0:{port}")
+    logger.info(f"📝 Debug mode: {debug_bool}")
+    app.run(host='0.0.0.0', port=port, debug=debug_bool)

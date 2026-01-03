@@ -56,6 +56,105 @@
 </div>
 {% endif %}
 
+<!-- CarScraper Pro Widget -->
+{% if carscraper_project and carscraper_stats %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-car"></i> CarScraper Pro - Prehľad
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary">{{ carscraper_stats.total_deals }}</h4>
+                            <p class="text-muted mb-0">Celkom deals</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success">{{ carscraper_stats.good_deals }}</h4>
+                            <p class="text-muted mb-0">Super dealov</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info">{{ "%.0f"|format(carscraper_stats.total_profit) }} €</h4>
+                            <p class="text-muted mb-0">Celkový zisk</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ carscraper_stats.success_rate }}%</h4>
+                            <p class="text-muted mb-0">Úspešnosť</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if carscraper_top_deals %}
+                <hr>
+                <h6><i class="fas fa-star"></i> Top 5 Super Deals</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Auto</th>
+                                <th>Cena</th>
+                                <th>Trhová hodnota</th>
+                                <th>Zisk</th>
+                                <th>Akcia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for deal in carscraper_top_deals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ deal.title[:50] }}{% if deal.title|length > 50 %}...{% endif %}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ deal.source }}</small>
+                                </td>
+                                <td>{{ "%.0f"|format(deal.price) }} €</td>
+                                <td>{{ "%.0f"|format(deal.market_value) if deal.market_value else "N/A" }} €</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        +{{ "%.0f"|format(deal.profit) if deal.profit else 0 }} €
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ deal.link }}" target="_blank" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-external-link-alt"></i> Otvoriť
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i> Zatiaľ žiadne deals. 
+                    <a href="/carscraper/run-scraping">Spustiť scraping</a> alebo 
+                    <a href="/carscraper">Zobraziť CarScraper Pro</a>
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <a href="/carscraper" class="btn btn-success">
+                        <i class="fas fa-car"></i> Zobraziť všetky deals
+                    </a>
+                    <a href="/carscraper/run-scraping" class="btn btn-primary">
+                        <i class="fas fa-sync"></i> Spustiť Scraping
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Vyhľadávanie -->
 <div class="row mb-3">
     <div class="col-md-6">

@@ -5,7 +5,6 @@ Testy pre všetky API endpointy, rate limiting, health check a API dokumentáciu
 
 import pytest
 import json
-import time
 
 
 class TestHealthCheck:
@@ -35,7 +34,8 @@ class TestHealthCheck:
         
         assert isinstance(data, dict)
         assert 'status' in data
-        assert data['status'] in ['healthy', 'unhealthy']
+        # Health check môže vrátiť 'healthy', 'degraded' alebo 'ok'
+        assert data['status'] in ['healthy', 'degraded', 'ok', 'unhealthy']
 
 
 class TestAPIDocumentation:

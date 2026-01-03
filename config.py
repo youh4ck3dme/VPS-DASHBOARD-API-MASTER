@@ -33,3 +33,8 @@ class Config:
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
     PORT = int(os.getenv('PORT', 6002))
+    
+    # Proxy konfigurácia pre CarScraper
+    PROXY_LIST = os.getenv('PROXY_LIST', '')  # Čiarkou oddelený zoznam proxy
+    PROXY_FILE = os.getenv('PROXY_FILE', 'proxies.txt')  # Súbor s proxy (jeden na riadok)
+    USE_PROXY = os.getenv('USE_PROXY', 'true').lower() == 'true'  # Zapnúť/vypnúť proxy
