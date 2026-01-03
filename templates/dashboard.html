@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - API Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-0"><i class="fas fa-chart-line"></i> Dashboard</h1>
+        <p class="text-muted">Prehľad tvojich projektov</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('projects') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nový projekt
+        </a>
+        <a href="{{ url_for('export_projects') }}" class="btn btn-secondary">
+            <i class="fas fa-download"></i> Export JSON
+        </a>
+    </div>
+</div>
+
+<!-- Štatistiky -->
+{% if stats %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ stats.total_projects }}</h3>
+                <p class="text-muted mb-0">Celkom projektov</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ stats.active_projects }}</h3>
+                <p class="text-muted mb-0">Aktívnych projektov</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">{{ stats.total_payments }}</h3>
+                <p class="text-muted mb-0">Celkom platieb</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-warning">{{ stats.total_automations }}</h3>
+                <p class="text-muted mb-0">Automatizácií</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Vyhľadávanie -->
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="GET" action="{{ url_for('dashboard') }}">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Vyhľadať projekt..." value="{{ search or '' }}">
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="fas fa-search"></i> Hľadať
+                </button>
+                {% if search %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Zrušiť
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if projects.items %}
+<div class="row">
+    {% for project in projects.items %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-project-diagram"></i> {{ project.name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    <strong>API Key:</strong><br>
+                    <code class="api-key-display">{{ project.api_key }}</code>
+                </p>
+                <p class="card-text">
+                    <strong>Skript:</strong> {{ project.script_path or "Žiadny" }}<br>
+                    <strong>Stav:</strong>
+                    {% if project.is_active %}
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Aktívny</span>
+                    {% else %}
+                        <span class="badge bg-danger"><i class="fas fa-times"></i> Neaktívny</span>
+                    {% endif %}
+                </p>
+                <hr>
+                <div class="d-grid gap-2">
+                    {% if project.script_path %}
+                    <a href="{{ url_for('run_script', project_id=project.id) }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-play"></i> Spustiť skript
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('payments', project_id=project.id) }}" class="btn btn-sm btn-success">
+                        <i class="fas fa-credit-card"></i> Platby
+                    </a>
+                    <a href="{{ url_for('automation', project_id=project.id) }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-robot"></i> Automatizácie
+                    </a>
+                    <a href="{{ url_for('ai', project_id=project.id) }}" class="btn btn-sm btn-info">
+                        <i class="fas fa-brain"></i> AI Generátor
+                    </a>
+                    <a href="{{ url_for('edit_project', project_id=project.id) }}" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-edit"></i> Upraviť
+                    </a>
+                    <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}" style="display: inline;" onsubmit="return confirm('Naozaj chceš vymazať tento projekt?');">
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="fas fa-trash"></i> Vymazať
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('regenerate_api_key', project_id=project.id) }}" style="display: inline;" onsubmit="return confirm('Naozaj chceš regenerovať API kľúč? Starý kľúč prestane fungovať!');">
+                        <button type="submit" class="btn btn-sm btn-warning">
+                            <i class="fas fa-key"></i> Regenerovať kľúč
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                Vytvorený: {{ project.created_at.strftime('%d.%m.%Y') }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Paginácia -->
+{% if projects.pages > 1 %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if projects.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('dashboard', page=projects.prev_num, search=search) }}">Predchádzajúca</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Predchádzajúca</span>
+        </li>
+        {% endif %}
+        
+        {% for page_num in projects.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == projects.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('dashboard', page=page_num, search=search) }}">{{ page_num }}</a>
+                </li>
+                {% endif %}
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">…</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if projects.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('dashboard', page=projects.next_num, search=search) }}">Ďalšia</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Ďalšia</span>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i> Nemáš ešte žiadne projekty. <a href="{{ url_for('projects') }}">Vytvor si prvý projekt!</a>
+</div>
+{% endif %}
+{% endblock %}

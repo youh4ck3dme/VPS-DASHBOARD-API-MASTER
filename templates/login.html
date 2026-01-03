@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="sk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prihlásenie - API Dashboard</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        margin: 0;
+        padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        background: white;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+      }
+      .logo {
+        text-align: center;
+        font-size: 48px;
+        color: #667eea;
+        margin-bottom: 20px;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 24px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .form-group {
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 500;
+      }
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        font-size: 16px;
+        box-sizing: border-box;
+        transition: border-color 0.3s ease;
+      }
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      .input-group {
+        position: relative;
+      }
+      .input-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        font-size: 18px;
+      }
+      .btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+      .alert {
+        padding: 15px;
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        margin-top: 20px;
+        color: #155724;
+      }
+      .alert strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #0f5132;
+      }
+      code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">🚀</div>
+      <h1>API Dashboard</h1>
+      <p class="subtitle">Prihlás sa do svojho účtu</p>
+
+      <form method="POST">
+        <div class="form-group">
+          <label for="username">Užívateľské meno</label>
+          <div class="input-group">
+            <input
+              type="text"
+              id="username"
+              name="username"
+              placeholder="Zadaj používateľské meno"
+              required
+            />
+            <span class="input-icon">👤</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Heslo</label>
+          <div class="input-group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Zadaj heslo"
+              required
+            />
+            <span class="input-icon">🔒</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn">Prihlásiť</button>
+      </form>
+
+      <div class="alert">
+        <strong>Predvolené prihlasovacie údaje:</strong><br />
+        Užívateľ: <code>admin</code><br />
+        Heslo: <code>admin123</code><br />
+        <em>Zmeň heslo po prvom prihlásení!</em>
+      </div>
+    </div>
+  </body>
+</html>

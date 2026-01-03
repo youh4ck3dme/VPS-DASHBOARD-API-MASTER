@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Interná chyba{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <i class="fas fa-server fa-5x text-danger mb-4"></i>
+        <h1 class="display-4">500</h1>
+        <p class="lead">Interná chyba servera</p>
+        <p class="text-muted">Niečo sa pokazilo. Skús to prosím neskôr.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-3">
+            <i class="fas fa-home"></i> Späť na dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

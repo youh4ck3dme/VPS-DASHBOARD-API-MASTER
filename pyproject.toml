@@ -1,0 +1,14 @@
+[tool.pyright]
+venvPath = "."
+venv = "venv"
+pythonVersion = "3.9"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingModuleSource = false
+reportMissingTypeStubs = false
+
+[tool.basedpyright]
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingModuleSource = false
+

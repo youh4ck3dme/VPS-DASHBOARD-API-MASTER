@@ -1,0 +1,39 @@
+# Systemd service súbor pre API Dashboard
+# Skopíruj tento súbor do: /etc/systemd/system/api_dashboard.service
+# Potom spusti: systemctl daemon-reload && systemctl start api_dashboard && systemctl enable api_dashboard
+
+[Unit]
+Description=API Dashboard - Flask Application
+After=network.target mysql.service redis-server.service
+Wants=mysql.service redis-server.service
+
+[Service]
+Type=notify
+User=root
+Group=root
+WorkingDirectory=/var/www/api_dashboard
+Environment="PATH=/var/www/api_dashboard/venv/bin"
+Environment="FLASK_APP=app.py"
+Environment="FLASK_ENV=production"
+
+# Spustenie aplikácie cez Gunicorn
+ExecStart=/var/www/api_dashboard/venv/bin/gunicorn \
+    --bind 127.0.0.1:5000 \
+    --workers 4 \
+    --worker-class sync \
+    --timeout 60 \
+    --access-logfile /var/www/api_dashboard/logs/gunicorn_access.log \
+    --error-logfile /var/www/api_dashboard/logs/gunicorn_error.log \
+    --log-level info \
+    app:app
+
+# Automatický restart pri zlyhání
+Restart=always
+RestartSec=10
+
+# Bezpečnostné nastavenia
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

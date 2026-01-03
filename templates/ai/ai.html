@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}AI Generátor - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item active">AI Generátor - {{ project.name }}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-brain"></i> AI Generátor obsahu</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.prompt.label(class="form-label") }}
+                        {{ form.prompt(class="form-control", rows=4, placeholder="Napíš popis produktu, blogový článok, alebo čokoľvek iné...") }}
+                        <small class="text-muted">
+                            <strong>Príklady promptov:</strong><br>
+                            - "Napíš popis produktu pre novú kávovar"<br>
+                            - "Vytvor blog článok o výhodách zdravého stravovania"<br>
+                            - "Vygeneruj 5 názvov pre nový tech startup"
+                        </small>
+                    </div>
+
+                    {{ form.submit(class="btn btn-info") }}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if ai_requests %}
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h4><i class="fas fa-history"></i> Posledné AI požadavky</h4>
+        {% for request in ai_requests %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong><i class="fas fa-clock"></i> {{ request.created_at.strftime('%d.%m.%Y %H:%M') }}</strong>
+            </div>
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <i class="fas fa-question-circle"></i> Prompt:
+                </h6>
+                <p class="card-text">{{ request.prompt }}</p>
+
+                <hr>
+
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <i class="fas fa-comment-dots"></i> Odpoveď:
+                </h6>
+                <p class="card-text">{{ request.response }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

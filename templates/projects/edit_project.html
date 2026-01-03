@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Upraviť projekt - API Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-0"><i class="fas fa-edit"></i> Upraviť projekt</h1>
+        <p class="text-muted">Uprav informácie o projekte</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Späť na dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Informácie o projekte</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                        {% if form.name.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.name.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.script_path.label(class="form-label") }}
+                        {{ form.script_path(class="form-control") }}
+                        <small class="form-text text-muted">Cesta k skriptu v adresári scripts/</small>
+                        {% if form.script_path.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.script_path.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.is_active.label(class="form-label") }}
+                        {{ form.is_active(class="form-select") }}
+                        {% if form.is_active.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.is_active.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {{ form.submit.label.text }}
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Zrušiť</a>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">API Kľúč</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Aktuálny API kľúč:</strong></p>
+                <code class="api-key-display d-block p-2 mb-3">{{ project.api_key }}</code>
+                <form method="POST" action="{{ url_for('regenerate_api_key', project_id=project.id) }}" onsubmit="return confirm('Naozaj chceš regenerovať API kľúč? Starý kľúč prestane fungovať!');">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-key"></i> Regenerovať API kľúč
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Štatistiky projektu</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Vytvorený:</strong><br>{{ project.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                <p><strong>Platieb:</strong><br>{{ project.payments|length }}</p>
+                <p><strong>Automatizácií:</strong><br>{{ project.automation|length }}</p>
+                <p><strong>AI požiadaviek:</strong><br>{{ project.ai_requests|length }}</p>
+            </div>
+        </div>
+        
+        <div class="card mt-3 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Nebezpečná zóna</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Vymazanie projektu je nezvratné!</p>
+                <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}" onsubmit="return confirm('Naozaj chceš vymazať projekt \"{{ project.name }}\"? Táto akcia je nezvratná!');">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Vymazať projekt
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

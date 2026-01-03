@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Stripe platba{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fab fa-stripe"></i> Platba cez Stripe</h5>
+            </div>
+            <div class="card-body">
+                <div id="payment-element">
+                    <!-- Stripe Payment Element sa vloží sem -->
+                </div>
+                <button id="submit-button" class="btn btn-success w-100 mt-3">
+                    <i class="fas fa-lock"></i> Zaplatiť
+                </button>
+                <div id="error-message" class="alert alert-danger mt-3" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    const stripe = Stripe('{{ STRIPE_PUBLIC_KEY }}');
+    const options = {
+        clientSecret: '{{ client_secret }}',
+    };
+
+    const elements = stripe.elements(options);
+    const paymentElement = elements.create('payment');
+    paymentElement.mount('#payment-element');
+
+    const submitButton = document.getElementById('submit-button');
+    const errorMessage = document.getElementById('error-message');
+
+    submitButton.addEventListener('click', async () => {
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Spracováva sa...';
+
+        const { error } = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: window.location.origin + '{{ url_for("dashboard") }}',
+            },
+        });
+
+        if (error) {
+            errorMessage.textContent = error.message;
+            errorMessage.style.display = 'block';
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-lock"></i> Zaplatiť';
+        }
+    });
+</script>
+{% endblock %}
