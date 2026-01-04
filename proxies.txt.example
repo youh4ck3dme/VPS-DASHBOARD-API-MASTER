@@ -1,0 +1,25 @@
+# Proxy list pre CarScraper Pro
+# Jeden proxy na riadok vo formáte: http://user:pass@ip:port alebo http://ip:port
+# Príklady:
+
+# HTTP proxy
+# http://proxy1.example.com:8080
+# http://user:password@proxy2.example.com:3128
+
+# HTTPS proxy
+# https://proxy3.example.com:8080
+
+# SOCKS proxy (vyžaduje requests[socks])
+# socks5://proxy4.example.com:1080
+
+# Poznámka: Pre produkciu odporúčam použiť:
+# 1. Rotujúce proxy služby (napr. Bright Data, Smartproxy, Oxylabs)
+# 2. VPS s rotujúcimi IP adresami
+# 3. Proxy pool s automatickou rotáciou
+
+# Kde kúpiť proxy:
+# - Bright Data: https://brightdata.com (od $500/mesiac)
+# - Smartproxy: https://smartproxy.com (od $75/mesiac)
+# - Oxylabs: https://oxylabs.io (od $300/mesiac)
+# - Proxy-Cheap: https://proxy-cheap.com (od $10/mesiac, menej spoľahlivé)
+
