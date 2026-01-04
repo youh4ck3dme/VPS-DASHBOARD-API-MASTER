@@ -289,8 +289,10 @@ class TestDataIntegrity:
                 response = client.post(f'/projects/{project_id}/delete', follow_redirects=True)
                 assert response.status_code == 200
 
-        # Overenie že príbuzné dáta boli vymazané
+        # Overenie že príbuzné dáta boli vymazané - refresh session
         with app.app_context():
+            from app import db
+            db.session.expire_all()  # Expire all objects to force refresh
             project = Project.query.get(project_id)
             assert project is None
 

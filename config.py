@@ -19,8 +19,8 @@ class Config:
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 
                               _prod_upload if os.path.exists(_prod_upload) else _default_upload)
     
-    # Vytvor adresár ak neexistuje
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    # Poznámka: Vytvorenie adresára je presunuté do app.py inicializácie
+    # aby sa nevykonávalo počas importu modulu (pozri app.py riadok ~31)
     
     STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
     STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY')

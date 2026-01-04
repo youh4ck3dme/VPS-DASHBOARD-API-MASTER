@@ -60,8 +60,10 @@ class TestProjectCRUD:
 
         assert response.status_code == 200
 
-        # Overenie že projekt bol vymazaný
+        # Overenie že projekt bol vymazaný - refresh session aby sme videli zmeny
         with app.app_context():
+            from app import db
+            db.session.expire_all()  # Expire all objects to force refresh
             project = Project.query.get(project_id)
             assert project is None
 

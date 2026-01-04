@@ -1,5 +1,6 @@
 from flask import Flask, render_template, render_template_string, redirect, url_for, flash, request, jsonify, get_flashed_messages
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 import pymysql
 pymysql.install_as_MySQLdb()
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -26,6 +27,15 @@ login_manager.login_view = 'login'  # type: ignore[assignment]
 
 # Vytvor logs adresár ak neexistuje (pred konfiguráciou logovania)
 os.makedirs('logs', exist_ok=True)
+
+# Vytvor UPLOAD_FOLDER adresár ak neexistuje (po načítaní konfigurácie)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except (OSError, PermissionError) as e:
+    # Ak zlyhá vytvorenie adresára, len zaloguj varovanie
+    # Aplikácia môže pokračovať, ale upload funkcie nemusia fungovať
+    import logging
+    logging.warning(f'Nepodarilo sa vytvoriť UPLOAD_FOLDER: {e}')
 
 # Nastavenie logovania
 logging.basicConfig(
@@ -208,28 +218,31 @@ def dashboard():
             pass  # Ak Redis zlyhá, pokračuj bez rate limiting
     
     # 1. AUTOMATICKÉ VYTVORENIE CARSCRAPER PRO PROJEKTU
-    carscraper_project = Project.query.filter_by(
-        user_id=current_user.id,
-        name='CarScraper Pro'
-    ).first()
-    
-    if not carscraper_project:
-        try:
-            # type: ignore[call-arg]
-            carscraper_project = Project(
-                name='CarScraper Pro',  # type: ignore[arg-type]
-                api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
-                user_id=current_user.id,  # type: ignore[arg-type]
-                is_active=True  # type: ignore[arg-type]
-            )
-            db.session.add(carscraper_project)
-            db.session.commit()
-            flash('CarScraper Pro projekt bol automaticky vytvorený!', 'info')
-            logger.info(f'CarScraper Pro projekt vytvorený pre používateľa {current_user.id}')
-        except Exception as e:
-            logger.error(f'Chyba pri vytváraní CarScraper Pro projektu: {e}')
-            db.session.rollback()
-            carscraper_project = None
+    # Preskoč auto-vytváranie počas testov
+    carscraper_project = None
+    if not app.config.get('TESTING', False):
+        carscraper_project = Project.query.filter_by(
+            user_id=current_user.id,
+            name='CarScraper Pro'
+        ).first()
+        
+        if not carscraper_project:
+            try:
+                # type: ignore[call-arg]
+                carscraper_project = Project(
+                    name='CarScraper Pro',  # type: ignore[arg-type]
+                    api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
+                    user_id=current_user.id,  # type: ignore[arg-type]
+                    is_active=True  # type: ignore[arg-type]
+                )
+                db.session.add(carscraper_project)
+                db.session.commit()
+                flash('CarScraper Pro projekt bol automaticky vytvorený!', 'info')
+                logger.info(f'CarScraper Pro projekt vytvorený pre používateľa {current_user.id}')
+            except Exception as e:
+                logger.error(f'Chyba pri vytváraní CarScraper Pro projektu: {e}')
+                db.session.rollback()
+                carscraper_project = None
     
     # Paginácia
     page = request.args.get('page', 1, type=int)
@@ -996,7 +1009,7 @@ def health_check():
     
     # Kontrola databázy
     try:
-        db.session.execute(db.text('SELECT 1'))
+        db.session.execute(text('SELECT 1'))
         health_status['services']['database'] = 'connected'
     except Exception as e:
         health_status['status'] = 'degraded'
@@ -1279,6 +1292,10 @@ def rate_limit_error(error):
 # --- AUTOMATICKÉ SCRAPING (Background Task) ---
 def auto_scrape_carscraper():
     """Automatické spustenie scraping každých 60 sekúnd"""
+    # Preskoč počas testov
+    if app.config.get('TESTING', False):
+        return
+    
     try:
         with app.app_context():
             # Nájdeme všetky aktívne CarScraper Pro projekty
