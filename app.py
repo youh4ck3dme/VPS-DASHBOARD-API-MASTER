@@ -1169,6 +1169,78 @@ def run_carscraper_scraping():
         logger.error(f'Chyba pri scraping: {e}', exc_info=True)
         return jsonify({'error': f'Chyba pri scraping: {str(e)}'}), 500
 
+@app.route('/api/carscraper/deals', methods=['GET'])
+def get_carscraper_deals():
+    """Vráti zoznam dealov s možnosťou filtrovania"""
+    try:
+        from core.models import CarDeal, Project
+        
+        # Získaj parametre
+        verdict = request.args.get('verdict')
+        brand = request.args.get('brand')
+        region = request.args.get('region')
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        # Base query - pre prihláseného používateľa alebo verejné demo dáta (ak user nie je prihlásený)
+        # V tomto demo režime vrátime všetko pre 'CarScraper Pro' projekt
+        project = Project.query.filter_by(name='CarScraper Pro').first()
+        if not project:
+            return jsonify({'deals': [], 'total': 0})
+
+        query = CarDeal.query.filter_by(project_id=project.id)
+
+        # Filtrovanie
+        if verdict:
+            query = query.filter(CarDeal.verdict == verdict)
+        if brand:
+            query = query.filter(CarDeal.brand.ilike(f"%{brand}%"))
+        if region:
+            query = query.filter(CarDeal.location.ilike(f"%{region}%") | CarDeal.region.ilike(f"%{region}%"))
+
+        # Zoradenie - najnovšie prvé
+        query = query.order_by(CarDeal.created_at.desc())
+
+        # Paginácia
+        total = query.count()
+        deals = query.offset(offset).limit(limit).all()
+
+        return jsonify({
+            'deals': [deal.to_dict() for deal in deals],
+            'total': total
+        })
+    except Exception as e:
+        logger.error(f'Chyba pri získavaní deals: {e}', exc_info=True)
+        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+
+@app.route('/api/top-deals', methods=['GET'])
+def get_top_deals():
+    """Vráti TOP 6 dealov dňa"""
+    try:
+        from core.models import CarDeal, Project
+        
+        project = Project.query.filter_by(name='CarScraper Pro').first()
+        if not project:
+            return jsonify([])
+
+        # Skús nájsť označené top deals
+        top_deals = CarDeal.query.filter_by(
+            project_id=project.id, 
+            is_top_deal=True
+        ).order_by(CarDeal.profit.desc()).limit(6).all()
+        
+        # Fallback: Ak nie sú označené, vráť najziskovejšie 'KÚPIŤ'
+        if not top_deals:
+             top_deals = CarDeal.query.filter_by(
+                project_id=project.id,
+                verdict='KÚPIŤ'
+            ).order_by(CarDeal.profit.desc()).limit(6).all()
+
+        return jsonify([deal.to_dict() for deal in top_deals])
+    except Exception as e:
+        logger.error(f'Chyba pri získavaní top deals: {e}', exc_info=True)
+        return jsonify([])
+
 @app.route('/carscraper/run-scraping', methods=['GET'])
 @login_required
 def carscraper_run_scraping_page():

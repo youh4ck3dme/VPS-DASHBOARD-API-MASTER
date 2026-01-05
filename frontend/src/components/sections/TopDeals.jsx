@@ -47,8 +47,21 @@ const TopDeals = memo(() => {
     const [topDeals, setTopDeals] = useState([]);
 
     useEffect(() => {
-        // In production, fetch real top deals from API
-        // fetch('/api/top-deals').then(r => r.json()).then(setTopDeals);
+        // Fetch real top deals from API
+        const loadTopDeals = async () => {
+            try {
+                const response = await fetch('/api/top-deals', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        setTopDeals(data);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching top deals:', error);
+            }
+        };
+        loadTopDeals();
     }, []);
 
     const handleUnlock = () => {
