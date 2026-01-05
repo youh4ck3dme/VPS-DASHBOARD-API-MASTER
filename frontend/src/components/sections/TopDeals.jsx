@@ -108,8 +108,8 @@ const TopDeals = memo(() => {
                             <Card
                                 hoverEffect
                                 className={`group relative overflow-hidden border-2 h-full flex flex-col ${deal.verdict === 'KÚPIŤ'
-                                        ? 'border-emerald-500/50 dark:border-emerald-500/30'
-                                        : 'border-red-500/50 dark:border-red-500/30'
+                                    ? 'border-emerald-500/50 dark:border-emerald-500/30'
+                                    : 'border-red-500/50 dark:border-red-500/30'
                                     }`}
                             >
                                 {/* Verdict Badge */}
@@ -168,12 +168,15 @@ const TopDeals = memo(() => {
                                     </div>
 
                                     {!unlocked && (
-                                        <div className="absolute inset-0 z-30 bg-white/10 dark:bg-black/10 backdrop-blur-[6px] flex flex-col items-center justify-center p-6 text-center">
-                                            <div className="bg-white dark:bg-slate-900 p-4 rounded-full shadow-2xl mb-4 text-slate-900 dark:text-white">
-                                                <Lock className="w-8 h-8" />
+                                        <div className="absolute inset-0 z-30 bg-gradient-to-br from-white/60 via-white/80 to-white/95 dark:from-slate-900/60 dark:via-slate-900/80 dark:to-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center border-t border-white/20 dark:border-white/5 transition-all duration-500">
+                                            <div className="bg-gradient-to-br from-amber-400 to-orange-600 p-4 rounded-full shadow-2xl shadow-amber-500/30 mb-5 relative group-hover:scale-110 transition-transform duration-500">
+                                                <Lock className="w-8 h-8 text-white drop-shadow-md" />
                                             </div>
-                                            <p className="text-slate-900 dark:text-white font-bold text-lg mb-1 drop-shadow-md">
+                                            <p className="text-slate-900 dark:text-white font-black text-xl mb-2 drop-shadow-sm tracking-tight">
                                                 Prémiová ponuka
+                                            </p>
+                                            <p className="text-slate-600 dark:text-slate-400 text-sm font-medium max-w-[200px]">
+                                                Odomknite pre zobrazenie detailov a analýzy
                                             </p>
                                         </div>
                                     )}
