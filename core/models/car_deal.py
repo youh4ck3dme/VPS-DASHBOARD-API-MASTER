@@ -41,6 +41,7 @@ class CarDeal(db.Model):
     description = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     ai_analysis = db.Column(db.Text)  # JSON s AI analýzou
+    full_specs = db.Column(db.JSON)   # Detailné technické parametre v JSON schéme
     
     # Stav
     is_viewed = db.Column(db.Boolean, default=False)
@@ -70,6 +71,7 @@ class CarDeal(db.Model):
             'region': self.region,
             'fuel_type': self.fuel_type,
             'transmission': self.transmission,
+            'full_specs': self.full_specs,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

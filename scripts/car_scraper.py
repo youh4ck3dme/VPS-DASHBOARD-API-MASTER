@@ -220,7 +220,8 @@ def save_deals_to_db(listings, project_id):
                     generation=listing.get('generation'),
                     region=listing.get('region'),
                     fuel_type=listing.get('fuel_type'),
-                    transmission=listing.get('transmission')
+                    transmission=listing.get('transmission'),
+                    full_specs=listing.get('full_specs')
                 )
                 
                 db.session.add(deal)

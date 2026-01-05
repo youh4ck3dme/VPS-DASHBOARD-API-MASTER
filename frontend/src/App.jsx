@@ -290,7 +290,7 @@ const Hero = memo(() => {
 });
 
 // ------------------ 🎴 Deal Card ------------------
-const DealCard = memo(({ deal }) => {
+const DealCard = memo(({ deal, onOpenDetail }) => {
   const isGoodDeal = deal.verdict === "KÚPIŤ";
   const timeAgo = deal.created_at ? new Date(deal.created_at).toLocaleString('sk-SK') : 'Pred chvíľou';
 
@@ -369,14 +369,149 @@ const DealCard = memo(({ deal }) => {
           </p>
         </div>
 
-        <a
-          href={deal.link || '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-auto w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-        >
-          Otvoriť detail <ArrowUpRight size={16} className="text-gray-400" />
-        </a>
+        <div className="mt-auto flex gap-2">
+          <button
+            onClick={() => onOpenDetail(deal)}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            Zobraziť parametre <ChevronRight size={16} />
+          </button>
+          <a
+            href={deal.link || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center shrink-0"
+            title="Otvoriť originálny inzerát"
+          >
+            <ArrowUpRight size={18} className="text-gray-400" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ------------------ 🖼️ Deal Detail Modal ------------------
+const DealDetailModal = memo(({ deal, onClose }) => {
+  if (!deal) return null;
+
+  const specs = deal.full_specs || {};
+  const basic = specs.basic_info || {};
+  const tech = specs.technical_details || {};
+  const condition = specs.condition || {};
+  const equipment = specs.equipment || {};
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div
+        className="bg-white dark:bg-gray-900 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-100 dark:bg-indigo-900/40 p-2 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate max-w-md">
+              {deal.title}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column: Image & Basic Info */}
+          <div className="space-y-6">
+            <div className="aspect-video w-full rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              {deal.image_url ? (
+                <img src={deal.image_url} alt={deal.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <Database size={48} />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Cena</span>
+                <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{Number(deal.price).toLocaleString()} €</span>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Najazdené</span>
+                <span className="text-2xl font-black text-gray-900 dark:text-white">{Number(deal.km || basic.km || 0).toLocaleString()} km</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Popis od predajcu</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic">
+                {deal.description || "Predajca neuviedol žiadny popis."}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column: Parameters */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm">
+              <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Technické parametre</h3>
+              </div>
+              <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                {[
+                  { label: "Značka", val: basic.brand || deal.brand },
+                  { label: "Model", val: basic.model || deal.model },
+                  { label: "Ročník", val: basic.year || deal.year },
+                  { label: "Palivo", val: basic.fuel_type || deal.fuel_type },
+                  { label: "Prevodovka", val: basic.transmission || deal.transmission },
+                  { label: "Výkon", val: basic.power_kw ? `${basic.power_kw} kW (${Math.round(basic.power_kw * 1.36)} koní)` : null },
+                  { label: "Objem", val: basic.engine_size_ccm ? `${basic.engine_size_ccm} ccm` : null },
+                  { label: "Pohon", val: tech.drive_type },
+                  { label: "Karoséria", val: tech.body_style },
+                  { label: "Farba", val: tech.color }
+                ].filter(p => p.val).map((p, i) => (
+                  <div key={i} className="flex justify-between items-center px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <span className="text-xs text-gray-500">{p.label}</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{p.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {equipment.other_features && equipment.other_features.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3">Výbava</h3>
+                <div className="flex flex-wrap gap-2">
+                  {equipment.other_features.map((item, idx) => (
+                    <span key={idx} className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded text-[10px] font-medium border border-gray-200 dark:border-gray-700">
+                      {item.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+              <a
+                href={deal.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20"
+              >
+                Prejsť na inzerát <ArrowUpRight size={20} />
+              </a>
+              <p className="text-[10px] text-center text-gray-400 mt-4 uppercase font-bold tracking-tighter">
+                ID Ponuky: #{deal.id} • Zdroj: {deal.source}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -395,9 +530,11 @@ const LiveFeed = memo(() => {
   const [filter, setFilter] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState(null);
+  const [selectedDeal, setSelectedDeal] = useState(null);
 
   const filteredDeals = React.useMemo(() => {
     let result = deals;
+    // ...
 
     // 1. Filter podľa typu/ceny
     if (filter === 'KÚPIŤ') {
@@ -546,9 +683,16 @@ const LiveFeed = memo(() => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredDeals.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
+              <DealCard key={deal.id} deal={deal} onOpenDetail={setSelectedDeal} />
             ))}
           </div>
+        )}
+
+        {selectedDeal && (
+          <DealDetailModal
+            deal={selectedDeal}
+            onClose={() => setSelectedDeal(null)}
+          />
         )}
       </div>
     </section>

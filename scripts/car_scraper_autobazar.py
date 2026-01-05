@@ -147,6 +147,28 @@ def scrape_autobazar(search_query=None, min_price=None, max_price=5000) -> List[
                     region = parse_region(region_text)
 
                     if price > 0 and link:
+                        # Map to JSON Schema
+                        full_specs = {
+                            "basic_info": {
+                                "brand": item.get("brandValue"),
+                                "model": item.get("modelValue"),
+                                "year": item.get("yearValue"),
+                                "km": item.get("km"),
+                                "fuel_type": item.get("fuelValue"),
+                                "transmission": item.get("transmissionValue"),
+                                "power_kw": item.get("powerValue"),
+                                "engine_size_ccm": item.get("volumeValue")
+                            },
+                            "technical_details": {
+                                "drive_type": item.get("driveValue"),
+                                "body_style": item.get("categoryValue"),
+                                "color": item.get("colorValue")
+                            },
+                            "equipment": {
+                                "other_features": desc.split(",") if desc else []
+                            }
+                        }
+                        
                         listings.append({
                             "title": title,
                             "price": int(price),
@@ -157,7 +179,10 @@ def scrape_autobazar(search_query=None, min_price=None, max_price=5000) -> List[
                             "region": region,
                             "link": link,
                             "source": "Autobazar.eu",
-                            "image_url": image_url
+                            "image_url": image_url,
+                            "fuel_type": item.get("fuelValue"),
+                            "transmission": item.get("transmissionValue"),
+                            "full_specs": full_specs
                         })
                         
                     if len(listings) >= 12:

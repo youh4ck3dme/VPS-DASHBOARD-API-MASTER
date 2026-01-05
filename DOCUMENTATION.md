@@ -27,8 +27,22 @@ CarScraper Pro je pokročilý systém na monitorovanie trhu s jazdenými vozidla
 
 ### 3. Interaktívna Mapa
 
-- Integrovaná SVG mapa Slovenska rozdelená na 8 krajov.
+- **Interaktívna Mapa**: Dynamické zobrazovanie počtu inzerátov v jednotlivých krajoch s možnosťou filtrovania.
 - Umožňuje geografické filtrovanie príležitostí jedným klikom.
+
+### 4. Single Post & JSON Schéma
+
+- **Single Post Detail**: Každý inzerát obsahuje detailné technické parametre (výkon, objem, výbava, stav) uložené v štandardizovanom JSON formáte.
+
+---
+
+### JSON Schéma (Standard)
+
+Pre každý automobil generujeme štruktúrovaný JSON podľa šablóny v `docs/car_schema_template.json`. Tento formát umožňuje:
+
+- **Jednotné zobrazenie**: Nezávisle od zdroja (Bazoš vs Autobazar) vidí užívateľ rovnaké kategórie parametrov.
+- **AI Analýzu**: Lepšie podklady pre AI verdikt na základe exaktných technických dát.
+- **Filtrovanie**: Do budúcna umožňuje filtrovanie podľa výkonu, typu pohonu alebo farby.
 
 ## Technické Detaily
 

@@ -135,7 +135,14 @@ def scrape_bazos(search_query="octavia", min_price=1000, max_price=30000) -> Lis
                     "region": region,
                     "link": link,
                     "source": "Bazoš.sk",
-                    "image_url": image_url
+                    "image_url": image_url,
+                    "full_specs": {
+                        "basic_info": {
+                            "brand": brand,
+                            "model": model,
+                            "price": price
+                        }
+                    }
                 })
         except Exception as e:
             print(f"⚠️ [BAZOŠ] Chyba pri parsovaní inzerátu: {e}")
