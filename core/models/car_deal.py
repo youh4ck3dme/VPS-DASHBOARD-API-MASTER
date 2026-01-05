@@ -46,6 +46,8 @@ class CarDeal(db.Model):
     # Stav
     is_viewed = db.Column(db.Boolean, default=False)
     is_favorite = db.Column(db.Boolean, default=False)
+    is_top_deal = db.Column(db.Boolean, default=False)  # Premium TOP 6 dňa
+    top_deal_date = db.Column(db.Date)  # Dátum kedy bola ponuka vybraná ako TOP
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def to_dict(self):
@@ -72,6 +74,8 @@ class CarDeal(db.Model):
             'fuel_type': self.fuel_type,
             'transmission': self.transmission,
             'full_specs': self.full_specs,
+            'is_top_deal': self.is_top_deal,
+            'top_deal_date': self.top_deal_date.isoformat() if self.top_deal_date else None,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

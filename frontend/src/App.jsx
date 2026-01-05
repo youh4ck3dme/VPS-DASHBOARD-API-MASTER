@@ -16,7 +16,10 @@ import {
   Zap,
   Target,
   Award,
-  Clock
+  Clock,
+  Lock,
+  Unlock,
+  Trophy
 } from 'lucide-react';
 import ParallaxLogo from './components/ParallaxLogo';
 import SlovakiaMap from './components/SlovakiaMap';
@@ -517,6 +520,162 @@ const DealDetailModal = memo(({ deal, onClose }) => {
   );
 });
 
+// ------------------ 🏆 Top Deals of Day (Premium) ------------------
+const TOP_DEMO_DEALS = [
+  {
+    id: 'demo-1',
+    title: 'Škoda Octavia III 2.0 TDI Style',
+    price: 8900,
+    market_value: 10500,
+    profit: 1600,
+    verdict: 'KÚPIŤ',
+    image_url: '/static/demo_skoda.png',
+    year: 2017,
+    km: 145000
+  },
+  {
+    id: 'demo-2',
+    title: 'Volkswagen Golf VII 1.4 TSI',
+    price: 7200,
+    market_value: 8800,
+    profit: 1600,
+    verdict: 'KÚPIŤ',
+    image_url: '/static/demo_golf.png',
+    year: 2016,
+    km: 98000
+  },
+  {
+    id: 'demo-3',
+    title: 'BMW 320d Touring xDrive',
+    price: 12500,
+    market_value: 11900,
+    profit: -600,
+    verdict: 'NEKUPOVAŤ',
+    image_url: '/static/demo_bmw.png',
+    year: 2015,
+    km: 195000
+  }
+];
+
+const TopDealsOfDay = memo(() => {
+  const [unlocked, setUnlocked] = useState(false);
+  const [topDeals, setTopDeals] = useState([]);
+
+  useEffect(() => {
+    // In production, fetch real top deals from API
+    // fetch('/api/top-deals').then(r => r.json()).then(setTopDeals);
+  }, []);
+
+  const handleUnlock = () => {
+    // In production, trigger Stripe checkout
+    alert('💳 Platba 0.99€ - Toto je demo. V produkčnej verzii sa otvorí Stripe checkout.');
+    setUnlocked(true);
+  };
+
+  const dealsToShow = unlocked ? topDeals : TOP_DEMO_DEALS;
+
+  return (
+    <section className="py-16 bg-gradient-to-b from-amber-50 to-white dark:from-amber-900/10 dark:to-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-sm font-bold mb-4">
+            <Trophy className="w-4 h-4" /> PREMIUM BONUS
+          </span>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">
+            TOP 6 Ponúk Dňa
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            AI každý deň o polnoci vyhodnotí stovky inzerátov a vyberie 6 najziskovejších.
+            Tieto ponuky sú exkluzívne pre prémiových používateľov.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {dealsToShow.slice(0, 3).map((deal) => (
+            <div
+              key={deal.id}
+              className={`relative bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-xl border-2 ${deal.verdict === 'KÚPIŤ'
+                ? 'border-emerald-400 dark:border-emerald-600'
+                : 'border-red-400 dark:border-red-600'
+                }`}
+            >
+              {/* Badge */}
+              <div className={`absolute top-4 left-4 z-10 px-3 py-1 rounded-full text-xs font-bold text-white ${deal.verdict === 'KÚPIŤ' ? 'bg-emerald-500' : 'bg-red-500'
+                }`}>
+                {deal.verdict}
+              </div>
+
+              {/* Profit Badge */}
+              {deal.profit > 0 && (
+                <div className="absolute top-4 right-4 z-10 bg-amber-400 text-amber-900 px-3 py-1 rounded-full text-xs font-bold">
+                  +{deal.profit.toLocaleString()}€ ZISK
+                </div>
+              )}
+
+              {/* Image */}
+              <div className="h-48 bg-gray-100 dark:bg-gray-700">
+                <img
+                  src={deal.image_url}
+                  alt={deal.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Content */}
+              <div className="p-5">
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2 line-clamp-1">
+                  {deal.title}
+                </h3>
+
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <span className="text-xs text-gray-500">Cena</span>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {deal.price.toLocaleString()}€
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-500">Trhová hodnota</span>
+                    <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">
+                      {deal.market_value.toLocaleString()}€
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  <span className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{deal.year}</span>
+                  <span className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{(deal.km / 1000).toFixed(0)}k km</span>
+                </div>
+
+                {!unlocked && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/50 to-transparent flex items-end justify-center pb-8">
+                    <Lock className="w-8 h-8 text-white/50 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {!unlocked && (
+          <div className="text-center">
+            <button
+              onClick={handleUnlock}
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+            >
+              <Unlock className="w-5 h-5" />
+              Odomknúť TOP 6 dňa za 0.99€
+            </button>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+              Jednorazová platba • Platí do polnoci • Nové ponuky každý deň
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+});
+
 const POPULAR_BRANDS = [
   'Skoda', 'Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz',
   'Hyundai', 'Kia', 'Toyota', 'Peugeot', 'Renault',
@@ -902,6 +1061,7 @@ const App = () => {
     <div className="min-h-screen bg-white dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 antialiased">
       <Navbar onLinkClick={handleLinkClick} />
       <Hero />
+      <TopDealsOfDay />
       <LiveFeed />
       <Features />
       <Pricing />

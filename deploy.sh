@@ -8,7 +8,7 @@ set -e
 VPS_USER="root"
 VPS_HOST="194.182.87.6"
 VPS_PATH="/var/www/carscraper"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_rsa_vps}"
 
 echo "🚀 CarScraper Pro - VPS Deployment"
 echo "=================================="
