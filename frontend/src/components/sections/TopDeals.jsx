@@ -64,10 +64,14 @@ const TopDeals = memo(() => {
         loadTopDeals();
     }, []);
 
+    const SUMUP_LINK = "https://sumup.me/"; // TODO: Replace with actual SumUp Payment Link
+
     const handleUnlock = () => {
-        // In production, trigger Stripe checkout
-        alert('💳 Platba 0.99€ - Toto je demo. V produkčnej verzii sa otvorí Stripe checkout.');
-        setUnlocked(true);
+        window.open(SUMUP_LINK, '_blank');
+        // Optional: setUnlocked(true) immediately or wait for user to return? 
+        // For simple link, we might want to just let them go pay. 
+        // If you want to unlock immediately after click for UX:
+        // setUnlocked(true); 
     };
 
     const dealsToShow = unlocked ? topDeals : TOP_DEMO_DEALS;
