@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="sk" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarScraper Pro - Podhodnotené autá okamžite</title>
+
+    <!-- Design Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- AOS Animations -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #ffffff;
+            color: #111827;
+        }
+
+        /* Glassmorphism utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(229, 231, 235, 0.5);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+            border-color: #4f46e5;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #111827 0%, #4f46e5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c7c7c7;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+</head>
+
+<body class="antialiased overflow-x-hidden">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 glass transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
+                        <i data-lucide="zap" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xl font-bold tracking-tight text-gray-900">CarScraper<span
+                            class="text-primary-600">Pro</span></span>
+                </div>
+
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#features"
+                        class="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">Funkcie</a>
+                    <a href="#how-it-works"
+                        class="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">Ako to
+                        funguje</a>
+                    <a href="#pricing"
+                        class="text-sm font-medium text-gray-600 hover:text-primary-600 transition-colors">Cenník</a>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <a href="{{ url_for('login') }}"
+                        class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Prihlásiť sa</a>
+                    <a href="#pricing"
+                        class="hidden sm:inline-flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all shadow-lg shadow-primary-600/20 active:scale-95">
+                        Začať zdarma
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="relative pt-32 pb-20 sm:pt-40 sm:pb-24 overflow-hidden">
+        <!-- Decoration Blobs -->
+        <div class="absolute top-0 left-1/2 w-full -translate-x-1/2 h-full z-0 pointer-events-none">
+            <div
+                class="absolute top-20 left-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob">
+            </div>
+            <div
+                class="absolute top-20 right-10 w-72 h-72 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000">
+            </div>
+            <div
+                class="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000">
+            </div>
+        </div>
+
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="inline-flex items-center px-4 py-2 rounded-full border border-primary-100 bg-primary-50 text-primary-700 text-sm font-medium mb-8 animate-fade-in-up"
+                data-aos="fade-down">
+                <span class="relative flex h-2 w-2 mr-2">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                </span>
+                Novinka: Telegram notifikácie v reálnom čase 🚀
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-8" data-aos="fade-up" data-aos-delay="100">
+                Nájdite podhodnotené autá <br>
+                <span class="gradient-text">skôr ako ostatní.</span>
+            </h1>
+
+            <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500 mb-10" data-aos="fade-up" data-aos-delay="200">
+                Automatický monitoring inzerátov 24/7. AI analýza ceny a okamžité upozornenia na najlepšie ponuky priamo
+                do vášho mobilu.
+            </p>
+
+            <div class="flex flex-col sm:flex-row justify-center gap-4 mb-20" data-aos="fade-up" data-aos-delay="300">
+                <a href="#pricing"
+                    class="inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-xl text-white bg-primary-600 hover:bg-primary-700 transition-all shadow-xl shadow-primary-600/20 hover:shadow-primary-600/40 transform hover:-translate-y-1">
+                    Vyskúšať zadarmo
+                    <i data-lucide="arrow-right" class="ml-2 w-5 h-5"></i>
+                </a>
+                <a href="#how-it-works"
+                    class="inline-flex items-center justify-center px-8 py-4 border border-gray-200 text-lg font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-all hover:border-gray-300 transform hover:-translate-y-1">
+                    <i data-lucide="play-circle" class="mr-2 w-5 h-5 text-gray-400"></i>
+                    Ako to funguje?
+                </a>
+            </div>
+
+            <!-- Mock Dashboard Preview -->
+            <div class="relative max-w-5xl mx-auto" data-aos="fade-up" data-aos-delay="500">
+                <div
+                    class="absolute -inset-1 bg-gradient-to-r from-primary-600 to-purple-600 rounded-2xl blur opacity-20">
+                </div>
+                <div class="relative bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+                    <!-- Fake Browser Header -->
+                    <div class="h-10 bg-gray-50 border-b border-gray-200 flex items-center px-4 space-x-2">
+                        <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                    </div>
+
+                    <!-- Content Preview -->
+                    <div class="p-6 md:p-10 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                        <!-- Card 1 -->
+                        <div
+                            class="bg-white rounded-xl border border-green-100 shadow-sm p-4 relative overflow-hidden group hover:border-green-500 transition-all duration-300">
+                            <div
+                                class="absolute top-3 right-3 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold flex items-center">
+                                <i data-lucide="trending-up" class="w-3 h-3 mr-1"></i> +2 500 € zisk
+                            </div>
+                            <h3 class="font-bold text-gray-900 group-hover:text-primary-600 transition-colors">Škoda
+                                Octavia III RS</h3>
+                            <div class="mt-2 text-2xl font-bold text-gray-900">14 500 €</div>
+                            <div class="text-sm text-gray-500">Trhová: 17 000 €</div>
+                            <div class="mt-4 flex gap-2">
+                                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">2018</span>
+                                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">150k km</span>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-gray-50">
+                                <button
+                                    class="w-full text-center text-sm font-medium text-primary-600 group-hover:text-primary-700">Otvoriť
+                                    detail &rarr;</button>
+                            </div>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div
+                            class="bg-white rounded-xl border border-red-100 shadow-sm p-4 relative overflow-hidden group hover:border-red-500 transition-all duration-300 opacity-70">
+                            <div
+                                class="absolute top-3 right-3 bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">
+                                RISK
+                            </div>
+                            <h3 class="font-bold text-gray-900">Volkswagen Golf VII</h3>
+                            <div class="mt-2 text-2xl font-bold text-gray-900">8 900 €</div>
+                            <div class="text-sm text-gray-500">Trhová: 8 500 €</div>
+                            <div class="mt-4 flex gap-2">
+                                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">2015</span>
+                                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">220k km</span>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-gray-50">
+                                <button
+                                    class="w-full text-center text-sm font-medium text-gray-400 cursor-not-allowed">Ignorované</button>
+                            </div>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div
+                            class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 relative overflow-hidden group hover:border-primary-500 transition-all duration-300 hidden md:block animate-pulse-slow">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="h-10 w-10 bg-gray-200 rounded-full"></div>
+                                <div class="space-y-2">
+                                    <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-16"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="h-16 bg-gray-100 rounded w-full"></div>
+                                <div class="h-4 bg-gray-100 rounded w-3/4"></div>
+                            </div>
+                            <div class="mt-4 text-center text-gray-400 text-sm italic">
+                                Skenujem nové inzeráty...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div id="features" class="py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-base font-semibold text-primary-600 tracking-wide uppercase">Funkcie</h2>
+                <p class="mt-2 text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Všetko čo potrebujete pre <br>úspešný flip áut.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="0">
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mb-6">
+                        <i data-lucide="globe" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Multi-source Scraping</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Sťahujeme inzeráty zo všetkých hlavných portálov (Bazoš, Autobazar.eu, atď.) na jedno miesto.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="100">
+                    <div
+                        class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 mb-6">
+                        <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">AI Valuácia</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Umelá inteligencia okamžite vypočíta trhovú cenu a váš potenciálny zisk.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="200">
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600 mb-6">
+                        <i data-lucide="bell-ring" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Instantné notifikácie</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Dostanete upozornenie na Telegram v sekunde, keď sa objaví výhodná ponuka.
+                    </p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="300">
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-600 mb-6">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Detekcia rizík</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Automaticky označíme podozrivé inzeráty, stočené kilometre alebo nehody.
+                    </p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="400">
+                    <div
+                        class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center text-yellow-600 mb-6">
+                        <i data-lucide="search" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Pokročilé filtre</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Filtrujte autá podľa ROI (návratnosti investície), marže alebo konkrétnych modelov.
+                    </p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="glass-card p-8 rounded-2xl" data-aos="fade-up" data-aos-delay="500">
+                    <div
+                        class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 mb-6">
+                        <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Štatistiky trhu</h3>
+                    <p class="text-gray-500 leading-relaxed">
+                        Prehľadné grafy vývoja cien pre každé vozidlo v čase.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Section -->
+    <div id="pricing" class="py-24 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">Transparentné ceny</h2>
+                <p class="text-xl text-gray-500">
+                    Začnite zadarmo, plaťte len keď zarábate.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Free Plan -->
+                <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all"
+                    data-aos="fade-up" data-aos-delay="0">
+                    <h3 class="text-lg font-semibold text-gray-900">Starter</h3>
+                    <div class="mt-4 flex items-baseline text-gray-900">
+                        <span class="text-5xl font-extrabold tracking-tight">0 €</span>
+                        <span class="ml-1 text-xl font-semibold text-gray-500">/mesiac</span>
+                    </div>
+                    <p class="mt-4 text-gray-500">Na vyskúšanie platformy.</p>
+
+                    <ul role="list" class="mt-6 space-y-4">
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700">10 inzerátov denne</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700">Základné filtre</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="x" class="flex-shrink-0 w-5 h-5 text-gray-300"></i>
+                            <span class="ml-3 text-base text-gray-400 line-through">Telegram notifikácie</span>
+                        </li>
+                    </ul>
+
+                    <a href="#pricing"
+                        class="mt-8 block w-full bg-gray-50 border border-gray-200 rounded-lg py-3 px-4 text-center text-sm font-semibold text-gray-900 hover:bg-gray-100 transition-colors">
+                        Vytvoriť účet
+                    </a>
+                </div>
+
+                <!-- Pro Plan (Highlighted) -->
+                <div class="bg-white rounded-2xl p-8 border-2 border-primary-500 shadow-xl relative transform md:-translate-y-4"
+                    data-aos="fade-up" data-aos-delay="100">
+                    <div
+                        class="absolute top-0 right-0 -mt-3 mr-3 px-3 py-1 bg-gradient-to-r from-primary-500 to-purple-500 text-white text-xs font-bold uppercase rounded-full shadow-md">
+                        Najpopulárnejšie
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Hobby</h3>
+                    <div class="mt-4 flex items-baseline text-gray-900">
+                        <span class="text-5xl font-extrabold tracking-tight">29 €</span>
+                        <span class="ml-1 text-xl font-semibold text-gray-500">/mesiac</span>
+                    </div>
+                    <p class="mt-4 text-gray-500">Pre začínajúcich flipperov.</p>
+
+                    <ul role="list" class="mt-6 space-y-4">
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700 font-medium">Neobmedzené inzeráty</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700 font-medium">Telegram notifikácie (5 min
+                                delay)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700 font-medium">AI Analýza cien</span>
+                        </li>
+                    </ul>
+
+                    <a href="#pricing"
+                        class="mt-8 block w-full bg-primary-600 rounded-lg py-3 px-4 text-center text-sm font-semibold text-white hover:bg-primary-700 hover:shadow-lg transition-all shadow-primary-500/30">
+                        Začať zarábať
+                    </a>
+                </div>
+
+                <!-- Enterprise Plan -->
+                <div class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-lg transition-all"
+                    data-aos="fade-up" data-aos-delay="200">
+                    <h3 class="text-lg font-semibold text-gray-900">Pro Trader</h3>
+                    <div class="mt-4 flex items-baseline text-gray-900">
+                        <span class="text-5xl font-extrabold tracking-tight">79 €</span>
+                        <span class="ml-1 text-xl font-semibold text-gray-500">/mesiac</span>
+                    </div>
+                    <p class="mt-4 text-gray-500">Pre maximálnu rýchlosť.</p>
+
+                    <ul role="list" class="mt-6 space-y-4">
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700">Všetko z Hobby</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="zap" class="flex-shrink-0 w-5 h-5 text-yellow-500"></i>
+                            <span class="ml-3 text-base text-gray-700 font-bold">Instantné notifikácie (0s delay)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i data-lucide="check" class="flex-shrink-0 w-5 h-5 text-green-500"></i>
+                            <span class="ml-3 text-base text-gray-700">Prioritný support</span>
+                        </li>
+                    </ul>
+
+                    <a href="#pricing"
+                        class="mt-8 block w-full bg-gray-50 border border-gray-200 rounded-lg py-3 px-4 text-center text-sm font-semibold text-gray-900 hover:bg-gray-100 transition-colors">
+                        Kontaktovať nás
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="bg-gray-900 py-16 sm:py-24 relative overflow-hidden">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute -top-1/2 -right-1/2 w-[100rem] h-[100rem] bg-indigo-900/20 rounded-full blur-3xl">
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            <h2 class="text-3xl font-extrabold text-white sm:text-4xl mb-6">
+                Pripravený na svoj prvý deal?
+            </h2>
+            <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
+                Pridajte sa k stovkám obchodníkov, ktorí už používajú CarScraper Pro na hľadanie podhodnotených áut.
+            </p>
+            <a href="#pricing"
+                class="inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-xl text-gray-900 bg-white hover:bg-gray-100 transition-all shadow-xl hover:shadow-white/20 transform hover:-translate-y-1">
+                Vytvoriť účet zadarmo
+            </a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-12">
+        <div
+            class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center bg-transparent">
+            <div class="flex items-center gap-2 mb-4 md:mb-0">
+                <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                </div>
+                <span class="text-lg font-bold text-gray-900">CarScraper Pro</span>
+            </div>
+            <div class="flex space-x-6 text-sm text-gray-500">
+                <a href="#" class="hover:text-gray-900">Podmienky</a>
+                <a href="#" class="hover:text-gray-900">Súkromie</a>
+                <a href="#" class="hover:text-gray-900">Kontakt</a>
+            </div>
+            <div class="mt-4 md:mt-0 text-sm text-gray-400">
+                &copy; 2024 CarScraper Pro. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Init Icons
+        lucide.createIcons();
+
+        // Init Animations
+        AOS.init({
+            duration: 800,
+            once: true,
+            offset: 100
+        });
+
+        // Navbar Scroll Effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('shadow-sm');
+                navbar.style.background = 'rgba(255, 255, 255, 0.95)';
+            } else {
+                navbar.classList.remove('shadow-sm');
+                navbar.style.background = 'rgba(255, 255, 255, 0.7)';
+            }
+        });
+    </script>
+</body>
+
+</html>

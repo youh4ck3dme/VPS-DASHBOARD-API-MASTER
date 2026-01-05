@@ -19,9 +19,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import proxy manager
 try:
     from utils.proxy_manager import safe_request
+    from utils.car_parser import parse_car_title, parse_region, is_blacklisted
     PROXY_AVAILABLE = True
 except ImportError:
     PROXY_AVAILABLE = False
+    # Mock parser ak import zlyhá
+    def parse_car_title(t): return None, None
+    def parse_region(l): return l
+    def is_blacklisted(t): return False
 
 def safe_extract_price(text):
     """Bezpečne vytiahne cenu z textu"""
@@ -55,7 +60,7 @@ def scrape_bazos(search_query="octavia", min_price=1000, max_price=30000) -> Lis
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
         try:
-            time.sleep(random.uniform(1.0, 3.0))
+            time.sleep(random.uniform(0.5, 1.0))
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
         except Exception as e:
@@ -94,17 +99,43 @@ def scrape_bazos(search_query="octavia", min_price=1000, max_price=30000) -> Lis
             desc_tag = item.select_one("div.popis")
             description = desc_tag.text.strip() if desc_tag else "Bez popisu"
             
+            # Blacklist filter (AAA Auto)
+            if is_blacklisted(title) or is_blacklisted(description):
+                continue
+            
+            # Location
+            loc_tag = item.select_one("div.inzeratylok")
+            location_text = loc_tag.text.strip() if loc_tag else "Neznáme"
+            
+            # Parse struct data
+            brand, model = parse_car_title(title)
+            region = parse_region(location_text)
+
             price_tag = item.select_one("div.inzeratycena b")
             price_text = price_tag.text.strip() if price_tag else "0"
             price = safe_extract_price(price_text)
             
             if price > 500:
+                # Extrakcia obrázku
+                img_tag = item.select_one("img")
+                image_url = ""
+                if img_tag:
+                    image_url = img_tag.get("src", "")
+                    # Bazoš má malé náhľady, skús získať väčšiu verziu
+                    if image_url and "/mini/" in image_url:
+                        image_url = image_url.replace("/mini/", "/img/")
+                
                 listings.append({
                     "title": title,
                     "price": price,
                     "description": description,
+                    "location": location_text,
+                    "brand": brand,
+                    "model": model,
+                    "region": region,
                     "link": link,
-                    "source": "Bazoš.sk"
+                    "source": "Bazoš.sk",
+                    "image_url": image_url
                 })
         except Exception as e:
             print(f"⚠️ [BAZOŠ] Chyba pri parsovaní inzerátu: {e}")
@@ -112,4 +143,3 @@ def scrape_bazos(search_query="octavia", min_price=1000, max_price=30000) -> Lis
     
     print(f"✅ [BAZOŠ] Úspešne získaných {len(listings)} inzerátov")
     return listings[:15]  # Vráť prvých 15
-

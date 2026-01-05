@@ -16,125 +16,164 @@ from typing import List, Dict, Optional
 # Pridaj parent adresár do path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import proxy manager
+# Importy
+import json
 try:
     from utils.proxy_manager import safe_request
+    from utils.car_parser import parse_car_title, parse_region, is_blacklisted
     PROXY_AVAILABLE = True
 except ImportError:
     PROXY_AVAILABLE = False
+    def parse_car_title(t): return None, None
+    def parse_region(l): return l
+    def is_blacklisted(t): return False
 
-def safe_extract_price(text):
-    """Bezpečne vytiahne cenu z textu"""
-    if isinstance(text, (int, float)):
-        return int(text)
-    numbers = re.findall(r'\d+', str(text).replace(' ', '').replace(',', '').replace('.', ''))
-    if numbers:
-        return int(numbers[0])
-    return 0
-
-def scrape_autobazar(search_query="octavia", min_price=1000, max_price=30000) -> List[Dict]:
+def scrape_autobazar(search_query=None, min_price=None, max_price=5000) -> List[Dict]:
     """
-    Scrapuje inzeráty z Autobazar.eu (DRUHÝ ZDROJ - FALLBACK)
+    Scrapuje inzeráty z Autobazar.eu - Kategória LACNÉ AUTÁ (JSON API)
     
     Returns:
-        List[Dict]: Zoznam inzerátov s kľúčmi: title, price, description, link, source
+        List[Dict]: Zoznam inzerátov
     """
-    # Autobazar.eu má iný formát URL
-    url = f"https://www.autobazar.eu/skoda/octavia/?cena-od={min_price}&cena-do={max_price}"
+    # Force limit 5000 (Cheap Cars section)
+    if max_price is None or max_price > 5000:
+        max_price = 5000
     
-    print(f"🔄 [AUTOBAZAR] Sťahujem inzeráty z: {url}")
+    # URL s filtrom rok-od=2012 a cenou do 5000
+    url = f"https://www.autobazar.eu/kategoria/lacne-auta/?cena-do={max_price}&rok-od=2012&order=od-najnovsich"
     
-    # Použi safe_request s proxy ak je dostupné
+    print(f"🔄 [AUTOBAZAR] Sťahujem LACNÉ AUTÁ (JSON) z: {url}")
+    
     if PROXY_AVAILABLE:
-        response = safe_request(url, max_retries=3, delay=2.0)
-        if not response:
-            print("❌ [AUTOBAZAR] Chyba pri sťahovaní (všetky proxy zlyhali)")
-            return []
+        response = safe_request(url, max_retries=3, delay=1.0)
     else:
-        # Fallback na priamy request
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "sk-SK,sk;q=0.9,en-US;q=0.8,en;q=0.7"
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
         }
         try:
-            time.sleep(random.uniform(1.5, 3.5))
+            time.sleep(random.uniform(1.0, 2.0))
             response = requests.get(url, headers=headers, timeout=15)
-            response.raise_for_status()
         except Exception as e:
-            print(f"❌ [AUTOBAZAR] Chyba pri sťahovaní: {e}")
+            print(f"❌ [AUTOBAZAR] Chyba: {e}")
             return []
-    
-    if not response:
+            
+    if not response or not response.text:
         return []
-    
-    # Skontroluj, či sme dostali validný HTML
-    response_text = response.text.lower() if hasattr(response, 'text') else ''
-    if 'blocked' in response_text or 'access denied' in response_text or 'captcha' in response_text:
-        print("⚠️ [AUTOBAZAR] Pravdepodobne blokovaný alebo CAPTCHA")
-        return []
-    
-    soup = BeautifulSoup(response.text, 'html.parser')
+        
     listings = []
     
-    # Autobazar.eu má inú HTML štruktúru - skús rôzne selektory
-    items = soup.select("div.listing-item, div.car-item, article.listing, div.offer-item")
-    
-    # Ak nič nenašiel, skús alternatívne selektory
-    if not items:
-        items = soup.select("div[class*='car'], div[class*='offer'], div[class*='listing']")
-    
-    print(f"🔎 [AUTOBAZAR] Našiel som {len(items)} inzerátov")
-    
-    for item in items:
+    try:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        script = soup.select_one("#__NEXT_DATA__")
+        
+        if not script:
+            print("❌ [AUTOBAZAR] __NEXT_DATA__ nenašiel sa (možno zmena HTML)")
+            return []
+            
+        json_data = json.loads(script.text)
+        
+        # Navigácia v JSON štruktúre
+        # props -> pageProps -> trpcState -> queries -> [0] -> state -> data -> data -> [items]
         try:
-            # Rôzne možnosti pre názov
-            title_tag = (item.select_one("h2 a, h3 a, .title a, .name a, a.title") or 
-                        item.select_one("h2, h3, .title, .name"))
+            queries = json_data.get("props", {}).get("pageProps", {}).get("trpcState", {}).get("queries", [])
+            if not queries:
+                 print("⚠️ [AUTOBAZAR] Prázdne trpc queries")
+                 return []
             
-            if not title_tag:
-                continue
+            # Nájdi query, ktorá má dáta
+            items = []
+            for q in queries:
+                data_block = q.get("state", {}).get("data", {})
+                if data_block and "data" in data_block and isinstance(data_block["data"], list):
+                    items = data_block["data"]
+                    break
             
-            title = title_tag.text.strip()
+            print(f"🔎 [AUTOBAZAR] Našiel som {len(items)} inzerátov v JSON")
             
-            # Link
-            link_tag = item.select_one("a")
-            if link_tag and link_tag.get('href'):
-                href = link_tag.get('href')
-                if isinstance(href, list):
-                    href = href[0] if href else ''
-                if href.startswith('/'):
-                    link = "https://www.autobazar.eu" + href
-                elif href.startswith('http'):
-                    link = href
-                else:
-                    link = "https://www.autobazar.eu/" + href
-            else:
-                continue
-            
-            # Popis
-            desc_tag = (item.select_one(".description, .desc, .text, p") or 
-                       item.select_one("div[class*='desc'], div[class*='text']"))
-            description = desc_tag.text.strip() if desc_tag else "Bez popisu"
-            
-            # Cena - rôzne možnosti
-            price_tag = (item.select_one(".price, .cena, .cost, b.price, span.price") or
-                        item.select_one("div[class*='price'], span[class*='price']"))
-            price_text = price_tag.text.strip() if price_tag else "0"
-            price = safe_extract_price(price_text)
-            
-            if price > 500 and title:
-                listings.append({
-                    "title": title,
-                    "price": price,
-                    "description": description[:200],  # Obmedz na 200 znakov
-                    "link": link,
-                    "source": "Autobazar.eu"
-                })
-        except Exception as e:
-            print(f"⚠️ [AUTOBAZAR] Chyba pri parsovaní inzerátu: {e}")
-            continue
+            for item in items[:24]: # Väčší buffer pre filtrovanie, vrátime 12
+                try:
+                    title = item.get("title") or f"{item.get('brandValue', '')} {item.get('modelValue', '')}"
+                    user_name = item.get("user", {}).get("displayName", "")
+                    
+                    # Blacklist filter (AAA Auto)
+                    if is_blacklisted(title) or is_blacklisted(user_name):
+                        continue
+                        
+                    price = item.get("price") or item.get("finalPrice", 0)
+                    
+                    # Konštrukcia linku
+                    # Skúsime formát /detail/{sefName}/{id}
+                    sef_name = item.get("sefName")
+                    item_id = item.get("id")
+                    if sef_name and item_id:
+                        link = f"https://www.autobazar.eu/detail/{sef_name}/{item_id}/"
+                    else:
+                        link = "" # Skip ak nevieme link
+                        
+                    # Popis / Výbava
+                    desc = item.get("carEquipmentValue", "")
+                    
+                    # Lokácia
+                    loc_data = item.get("location", {})
+                    location_text = loc_data.get("name", "Neznáme")
+                    
+                    # Región (pre mapu) - skús parents
+                    region_text = location_text
+                    if "parentNames" in loc_data:
+                        parents = loc_data["parentNames"]
+                        # Zvyčajne "Nitriansky kraj", "Slovensko"
+                        for p in parents:
+                            if "kraj" in p:
+                                region_text = p
+                                break
+                    
+                    # Obrázok
+                    image_url = ""
+                    images = item.get("images", [])
+                    if images and len(images) > 0:
+                        previews = images[0].get("previewUrls", {})
+                        image_url = previews.get("record_premium") or previews.get("record_preview") or previews.get("orig")
+                    elif item.get("image"):
+                         previews = item.get("image", {}).get("previewUrls", {})
+                         image_url = previews.get("record_premium")
+                    
+                    # Normalize image URL
+                    if image_url and not image_url.startswith("http"):
+                        image_url = "https:" + image_url
+                        
+                    # Parse utils
+                    brand, model = parse_car_title(title)
+                    region = parse_region(region_text)
+
+                    if price > 0 and link:
+                        listings.append({
+                            "title": title,
+                            "price": int(price),
+                            "description": desc,
+                            "location": location_text,
+                            "brand": brand,
+                            "model": model,
+                            "region": region,
+                            "link": link,
+                            "source": "Autobazar.eu",
+                            "image_url": image_url
+                        })
+                        
+                    if len(listings) >= 12:
+                        break
+                except Exception as e:
+                    print(f"⚠️ Chyba item parse: {e}")
+                    continue
+                    
+        except AttributeError as e:
+            print(f"❌ [AUTOBAZAR] Chyba štruktúry JSON: {e}")
+            return []
+
+    except Exception as e:
+        print(f"❌ [AUTOBAZAR] Global error: {e}")
+        return []
     
     print(f"✅ [AUTOBAZAR] Úspešne získaných {len(listings)} inzerátov")
-    return listings[:15]  # Vráť prvých 15
+    return listings[:12]
 

@@ -18,6 +18,8 @@ import {
   Award,
   Clock
 } from 'lucide-react';
+import ParallaxLogo from './components/ParallaxLogo';
+import SlovakiaMap from './components/SlovakiaMap';
 
 // ------------------ 💡 Helpers / Hooks ------------------
 const useDarkMode = () => {
@@ -52,6 +54,63 @@ const CountUp = ({ value, duration = 1500, className = "" }) => {
 };
 
 // ------------------ 📡 API Client ------------------
+// ------------------ 🎭 Mock Data (Demo Mode) ------------------
+const MOCK_STATS = {
+  total_deals: 3274,
+  good_deals: 132,
+  total_profit: 48500.00,
+  success_rate: 14.5
+};
+
+const MOCK_DEALS = [
+  {
+    id: 1,
+    title: "Škoda Octavia III 2.0 TDI Style",
+    price: 8500,
+    market_value: 11200,
+    profit: 2700,
+    verdict: "KÚPIŤ",
+    risk_level: "Nízke",
+    reason: "Výrazne pod trhovou cenou (Z-Score: -1.8). Čistá história, prvý majiteľ.",
+    source: "Bazoš.sk",
+    link: "#",
+    image_url: "",  // Demo - reálne naplní scraper
+    created_at: new Date().toISOString(),
+    description: "Top stav, garážované, servisná knižka."
+  },
+  {
+    id: 2,
+    title: "Volkswagen Golf VII 1.4 TSI",
+    price: 9200,
+    market_value: 10500,
+    profit: 1300,
+    verdict: "KÚPIŤ",
+    risk_level: "Stredné",
+    reason: "Dobrá cena, ale vyšší nájazd km. Vhodné na rýchly otoč.",
+    source: "Autobazar.eu",
+    link: "#",
+    image_url: "",  // Demo - reálne naplní scraper
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    description: "Nebúrané, sezónne prezutie."
+  },
+  {
+    id: 3,
+    title: "BMW 320d Touring xDrive",
+    price: 15900,
+    market_value: 14500,
+    profit: -1400,
+    verdict: "NEKUPOVAŤ",
+    risk_level: "Vysoké",
+    reason: "Cena nad trhovým priemerom. Podozrenie na stočené km podľa STK.",
+    source: "Bazoš.sk",
+    link: "#",
+    image_url: "",  // Demo - reálne naplní scraper
+    created_at: new Date(Date.now() - 7200000).toISOString(),
+    description: "Dovoz Nemecko, plná výbava."
+  }
+];
+
+// ------------------ 📡 API Client ------------------
 const API_BASE = '/api/carscraper';
 
 const fetchDeals = async (verdict = null) => {
@@ -60,11 +119,22 @@ const fetchDeals = async (verdict = null) => {
     const response = await fetch(url, {
       credentials: 'include'
     });
-    if (!response.ok) throw new Error('Failed to fetch');
+
+    // Check Content-Type to avoid parsing HTML as JSON (redirects)
+    const contentType = response.headers.get("content-type");
+    if (!response.ok || !contentType || !contentType.includes("application/json")) {
+      console.warn('API not accessible or returned HTML (login redirect). Using Demo Data.');
+      // Filter mock deals if needed
+      const deals = verdict
+        ? MOCK_DEALS.filter(d => d.verdict === verdict)
+        : MOCK_DEALS;
+      return { deals, total: deals.length };
+    }
+
     return await response.json();
   } catch (error) {
-    console.error('API Error:', error);
-    return { deals: [], total: 0 };
+    console.error('API Error (Demo Fallback):', error);
+    return { deals: MOCK_DEALS, total: MOCK_DEALS.length };
   }
 };
 
@@ -73,11 +143,17 @@ const fetchStats = async () => {
     const response = await fetch(`${API_BASE}/stats`, {
       credentials: 'include'
     });
-    if (!response.ok) throw new Error('Failed to fetch');
+
+    const contentType = response.headers.get("content-type");
+    if (!response.ok || !contentType || !contentType.includes("application/json")) {
+      console.warn('API Stats not accessible. Using Mock Stats.');
+      return MOCK_STATS;
+    }
+
     return await response.json();
   } catch (error) {
-    console.error('Stats Error:', error);
-    return { total_deals: 0, good_deals: 0, total_profit: 0, success_rate: 0 };
+    console.error('Stats Error (Demo Fallback):', error);
+    return MOCK_STATS;
   }
 };
 
@@ -100,13 +176,8 @@ const Navbar = memo(({ onLinkClick }) => {
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md border-b border-gray-200/60 dark:border-gray-700/60 bg-white/80 dark:bg-gray-900/80 shadow-sm">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2 group">
-          <div className="bg-indigo-600 p-1.5 rounded-lg group-hover:bg-indigo-700 transition-colors">
-            <BarChart3 className="h-6 w-6 text-white" />
-          </div>
-          <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-            CarScraper <span className="text-indigo-600">Pro</span>
-          </span>
+        <a href="#" className="flex items-center group -ml-4">
+          <ParallaxLogo />
         </a>
 
         <ul className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -266,37 +337,33 @@ const DealCard = memo(({ deal }) => {
         </div>
 
         <div
-          className={`rounded-lg p-3 mb-4 text-sm border ${
-            isGoodDeal
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
-              : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-          }`}
+          className={`rounded-lg p-3 mb-4 text-sm border ${isGoodDeal
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+            }`}
         >
           <div className="flex justify-between items-center mb-1">
             <span
-              className={`font-bold flex items-center gap-1 ${
-                isGoodDeal ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'
-              }`}
+              className={`font-bold flex items-center gap-1 ${isGoodDeal ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'
+                }`}
             >
               {isGoodDeal ? <TrendingUp size={16} /> : <ShieldAlert size={16} />}
               {deal.verdict || 'RIZIKO'}
             </span>
             {deal.profit && (
               <span
-                className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                  isGoodDeal
-                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                }`}
+                className={`text-xs font-semibold px-2 py-0.5 rounded ${isGoodDeal
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}
               >
                 Zisk: {deal.profit > 0 ? '+' : ''}{Number(deal.profit).toLocaleString()} €
               </span>
             )}
           </div>
           <p
-            className={`text-xs leading-relaxed ${
-              isGoodDeal ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'
-            }`}
+            className={`text-xs leading-relaxed ${isGoodDeal ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'
+              }`}
           >
             {deal.reason || 'Analýza prebieha...'}
           </p>
@@ -315,15 +382,49 @@ const DealCard = memo(({ deal }) => {
   );
 });
 
+const POPULAR_BRANDS = [
+  'Skoda', 'Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz',
+  'Hyundai', 'Kia', 'Toyota', 'Peugeot', 'Renault',
+  'Ford', 'Opel', 'Dacia', 'Fiat', 'Seat'
+];
+
 // ------------------ 📰 Live Feed ------------------
 const LiveFeed = memo(() => {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(null);
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const [selectedBrand, setSelectedBrand] = useState(null);
+
+  const filteredDeals = React.useMemo(() => {
+    let result = deals;
+
+    // 1. Filter podľa typu/ceny
+    if (filter === 'KÚPIŤ') {
+      result = result.filter(d => d.verdict === 'KÚPIŤ');
+    } else if (filter === 'CHEAP') {
+      result = result.filter(d => d.price <= 5000);
+    }
+
+    // 2. Filter podľa regiónu
+    if (selectedRegion) {
+      result = result.filter(d => {
+        if (d.region) return d.region === selectedRegion;
+        return d.location && d.location.includes(selectedRegion.replace('ý', ''));
+      });
+    }
+    // 3. Filter podľa značky
+    if (selectedBrand) {
+      result = result.filter(d => d.brand && d.brand.toLowerCase() === selectedBrand.toLowerCase());
+    }
+    return result;
+  }, [deals, selectedRegion, filter, selectedBrand]);
 
   const loadDeals = useCallback(async () => {
     setLoading(true);
-    const data = await fetchDeals(filter);
+    // API filter posielame len ak je to verdict
+    const apiFilter = (filter === 'KÚPIŤ') ? 'KÚPIŤ' : null;
+    const data = await fetchDeals(apiFilter);
     setDeals(data.deals || []);
     setLoading(false);
   }, [filter]);
@@ -350,26 +451,76 @@ const LiveFeed = memo(() => {
             <div className="flex gap-2">
               <button
                 onClick={() => setFilter(null)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === null
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === null
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                  }`}
               >
                 Všetky
               </button>
               <button
                 onClick={() => setFilter('KÚPIŤ')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'KÚPIŤ'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'KÚPIŤ'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                  }`}
               >
                 Len Kúpiť
               </button>
+              <button
+                onClick={() => setFilter('CHEAP')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'CHEAP'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                  }`}
+              >
+                Lacné (&lt; 5k €)
+              </button>
             </div>
           </div>
+        </div>
+
+        {/* 🏷️ Brand Filter */}
+        <div className="mb-8">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            Kategórie podľa značiek
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
+            <button
+              onClick={() => setSelectedBrand(null)}
+              className={`p-3 rounded-xl border text-center transition-all ${selectedBrand === null
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300'
+                }`}
+            >
+              <div className="text-xs font-bold uppercase">Všetky</div>
+              <div className="text-[10px] opacity-70">{deals.length} ks</div>
+            </button>
+            {POPULAR_BRANDS.map(brand => {
+              const count = deals.filter(d => d.brand && d.brand.toLowerCase() === brand.toLowerCase()).length;
+              return (
+                <button
+                  key={brand}
+                  onClick={() => setSelectedBrand(selectedBrand === brand ? null : brand)}
+                  className={`p-3 rounded-xl border text-center transition-all ${selectedBrand === brand
+                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300'
+                    } ${count === 0 ? 'opacity-40 grayscale' : ''}`}
+                >
+                  <div className="text-xs font-bold truncate">{brand}</div>
+                  <div className="text-[10px] opacity-70">{count} ks</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Region Map Filter */}
+        <div className="mb-12">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            Filtrovať podľa lokality (interaktívna mapa)
+          </h3>
+          <SlovakiaMap selectedRegion={selectedRegion} onRegionSelect={setSelectedRegion} deals={deals} />
         </div>
 
         {loading ? (
@@ -382,14 +533,19 @@ const LiveFeed = memo(() => {
               </div>
             ))}
           </div>
-        ) : deals.length === 0 ? (
+        ) : filteredDeals.length === 0 ? (
           <div className="text-center py-12">
             <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Žiadne deals na zobrazenie. Spusti scraping skript!</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              {selectedRegion
+                ? `Žiadne inzeráty pre ${selectedRegion}.`
+                : "Žiadne deals na zobrazenie. Spusti scraping skript!"
+              }
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {deals.map((deal) => (
+            {filteredDeals.map((deal) => (
               <DealCard key={deal.id} deal={deal} />
             ))}
           </div>

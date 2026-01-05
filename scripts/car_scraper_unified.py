@@ -62,7 +62,7 @@ class UnifiedCarScraper:
                 'function': scrape_autobazar,
                 'priority': 2,
                 'timeout': 20,
-                'enabled': True
+                'enabled': True  # Enabled for Cheap Cars (<5000 EUR)
             })
         
         if AUTOSME_AVAILABLE:
@@ -71,7 +71,7 @@ class UnifiedCarScraper:
                 'function': scrape_autosme,
                 'priority': 3,
                 'timeout': 20,
-                'enabled': True
+                'enabled': False  # DISABLED: URL returns 404 (site structure changed 2026-01)
             })
         
         # Zoradiť podľa priority

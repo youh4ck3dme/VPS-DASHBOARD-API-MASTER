@@ -1,5 +1,4 @@
 from flask import Flask, render_template, render_template_string, redirect, url_for, flash, request, jsonify, get_flashed_messages
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 import pymysql
 pymysql.install_as_MySQLdb()
@@ -21,7 +20,11 @@ from functools import wraps
 app = Flask(__name__)
 app.config.from_object(Config)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
-db = SQLAlchemy(app)
+
+# Import db from extensions (shared with core.models) and initialize with app
+from core.extensions import db
+db.init_app(app)
+
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'  # type: ignore[assignment]
 
@@ -61,97 +64,7 @@ if app.config['STRIPE_SECRET_KEY']:
     stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
 # --- MODELY ---
-class User(UserMixin, db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    projects = db.relationship('Project', backref='author', lazy=True, cascade='all, delete-orphan')
-
-    def set_password(self, password):
-        """Hashuje heslo pomocou werkzeug (pbkdf2 pre Python 3.9 kompatibilitu)"""
-        # Použij pbkdf2:sha256 namiesto scrypt pre Python 3.9 kompatibilitu
-        self.password = generate_password_hash(password, method='pbkdf2:sha256')
-
-    def check_password(self, password):
-        """Overí heslo"""
-        try:
-            return check_password_hash(self.password, password)
-        except AttributeError as e:
-            # Zachyť chybu ak je heslo hashované pomocou scrypt (nie je podporované v Python 3.9)
-            if 'scrypt' in str(e).lower():
-                logger.warning(f'Scrypt hash detected for user {self.id}, cannot verify. User needs password reset.')
-                return False
-            raise
-        except Exception as e:
-            logger.error(f'Error checking password for user {self.id}: {str(e)}')
-            raise
-
-class Project(db.Model):
-    __tablename__ = 'projects'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    api_key = db.Column(db.String(120), unique=True, nullable=False)
-    script_path = db.Column(db.String(200))
-    is_active = db.Column(db.Boolean, default=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    payments = db.relationship('Payment', backref='project', lazy=True, cascade='all, delete-orphan')
-    automation = db.relationship('Automation', backref='project', lazy=True, cascade='all, delete-orphan')
-    ai_requests = db.relationship('AIRequest', backref='project', lazy=True, cascade='all, delete-orphan')
-
-class Payment(db.Model):
-    __tablename__ = 'payments'
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    amount = db.Column(db.Numeric(10, 2), nullable=False)
-    currency = db.Column(db.String(3), default='EUR')
-    status = db.Column(db.String(20), default='pending')
-    gateway = db.Column(db.String(20), nullable=False)
-    transaction_id = db.Column(db.String(120))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class Automation(db.Model):
-    __tablename__ = 'automation'
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    script_name = db.Column(db.String(120), nullable=False)
-    schedule = db.Column(db.String(50), nullable=False)
-    last_run = db.Column(db.DateTime)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class AIRequest(db.Model):
-    __tablename__ = 'ai_requests'
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    prompt = db.Column(db.Text, nullable=False)
-    response = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class CarDeal(db.Model):
-    __tablename__ = 'car_deals'
-    id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    price = db.Column(db.Numeric(10, 2), nullable=False)
-    market_value = db.Column(db.Numeric(10, 2))
-    profit = db.Column(db.Numeric(10, 2))
-    verdict = db.Column(db.String(20))  # KÚPIŤ, NEKUPOVAŤ, RIZIKO
-    risk_level = db.Column(db.String(20))  # Nízke, Stredné, Vysoké
-    reason = db.Column(db.Text)
-    source = db.Column(db.String(100))  # Bazoš.sk, Autobazar.eu, atď.
-    link = db.Column(db.String(500))
-    description = db.Column(db.Text)
-    image_url = db.Column(db.String(500))
-    ai_analysis = db.Column(db.Text)  # JSON s AI analýzou
-    is_viewed = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    project = db.relationship('Project', backref='car_deals')
+from core.models import User, Project, Payment, Automation, AIRequest, CarDeal
 
 # --- FORMULÁRE ---
 class LoginForm(FlaskForm):
@@ -200,6 +113,15 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # --- ROUTES ---
+
+# Verejná landing page (bez prihlásenia)
+@app.route('/landing')
+def landing_page():
+    """Marketingová landing page pre CarScraper Pro"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return render_template('landing.html')
+
 @app.route('/')
 @login_required
 def dashboard():
@@ -1311,7 +1233,14 @@ def auto_scrape_carscraper():
             if scripts_dir not in sys.path:
                 sys.path.insert(0, scripts_dir)
             
-            from car_scraper import scrape_bazos, save_deals_to_db
+            from car_scraper import scrape_bazos, save_deals_to_db, POPULAR_BRANDS
+            
+            # Rotácia značiek pre pravidelný scraping
+            if not hasattr(auto_scrape_carscraper, '_brand_index'):
+                auto_scrape_carscraper._brand_index = 0
+            
+            current_brand = POPULAR_BRANDS[auto_scrape_carscraper._brand_index % len(POPULAR_BRANDS)]
+            auto_scrape_carscraper._brand_index += 1
             
             # Obnov proxy pool každých 10 scrapingov (každých ~10 minút)
             if not hasattr(auto_scrape_carscraper, '_scrape_count'):
@@ -1329,14 +1258,14 @@ def auto_scrape_carscraper():
             
             for project in projects:
                 try:
-                    logger.info(f'Automatický scraping pre projekt {project.id} (používateľ {project.user_id})')
-                    listings = scrape_bazos()
+                    logger.info(f'Automatický scraping pre značku {current_brand} (Projekt {project.id})')
+                    listings = scrape_bazos(search_query=current_brand.lower())
                     
                     if listings:
                         saved = save_deals_to_db(listings, project.id)
-                        logger.info(f'Automatický scraping dokončený: {len(listings)} nájdených, {saved} uložených pre projekt {project.id}')
+                        logger.info(f'Automatický scraping dokončený: {len(listings)} nájdených, {saved} uložených pre {current_brand}')
                     else:
-                        logger.info(f'Žiadne inzeráty nájdené pre projekt {project.id}')
+                        logger.info(f'Žiadne inzeráty nájdené pre {current_brand}')
                 except Exception as e:
                     logger.error(f'Chyba pri automatickom scraping pre projekt {project.id}: {e}', exc_info=True)
     except Exception as e:
@@ -1360,10 +1289,13 @@ def background_scraper():
             time.sleep(60)  # Počkaj minútu pred ďalším pokusom
 
 # Spusti background thread len ak nie sme v testovacom režime
-if not os.environ.get('TESTING'):
+# Spusti background thread len ak nie sme v testovacom režime a je povolený v configu
+if not os.environ.get('TESTING') and app.config.get('SCRAPER_ENABLED', False):
     scraper_thread = threading.Thread(target=background_scraper, daemon=True)
     scraper_thread.start()
     logger.info('✅ Background scraper thread spustený (každých 60 sekúnd)')
+elif not os.environ.get('TESTING'):
+    logger.info('⏸️  Background scraper je vypnutý (v config.py)')
     
     # Spusti proxy refresher (automatické obnovovanie free proxy každých 30 minút)
     try:

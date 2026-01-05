@@ -17,7 +17,16 @@ from decimal import Decimal
 # Pridaj parent adresár do path pre import app modulov
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app, db, Project, CarDeal
+# Import z hlavného app.py (nie z app package!)
+import importlib.util
+app_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app.py')
+spec = importlib.util.spec_from_file_location("main_app", app_path)
+main_app = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(main_app)
+app = main_app.app
+db = main_app.db
+Project = main_app.Project
+CarDeal = main_app.CarDeal
 
 # Import proxy manager
 try:
@@ -78,7 +87,7 @@ def scrape_bazos_fallback(search_query="octavia", min_price=1000, max_price=3000
         }
         try:
             # Náhodný delay pre simuláciu ľudského správania
-            time.sleep(random.uniform(1.0, 3.0))
+            time.sleep(random.uniform(0.5, 1.0))
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
         except Exception as e:
@@ -205,7 +214,13 @@ def save_deals_to_db(listings, project_id):
                     link=listing['link'],  # type: ignore[arg-type]
                     description=listing.get('description', ''),  # type: ignore[arg-type]
                     image_url=listing.get('image_url', ''),  # type: ignore[arg-type]
-                    ai_analysis=json.dumps(analysis)  # type: ignore[arg-type]
+                    ai_analysis=json.dumps(analysis),  # type: ignore[arg-type]
+                    brand=listing.get('brand'),
+                    model=listing.get('model'),
+                    generation=listing.get('generation'),
+                    region=listing.get('region'),
+                    fuel_type=listing.get('fuel_type'),
+                    transmission=listing.get('transmission')
                 )
                 
                 db.session.add(deal)
@@ -219,31 +234,31 @@ def save_deals_to_db(listings, project_id):
     
     return saved_count
 
-def main(user_id=None):
+POPULAR_BRANDS = [
+    'Skoda', 'Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 
+    'Hyundai', 'Kia', 'Toyota', 'Peugeot', 'Renault', 
+    'Ford', 'Opel', 'Dacia', 'Fiat', 'Seat'
+]
+
+def main(user_id=None, brand=None):
     """Hlavná funkcia
     
     Args:
         user_id: ID používateľa pre ktorého sa má vytvoriť/nájsť projekt.
-                 Ak nie je zadaný, použije sa admin používateľ.
+        brand: Konkrétna značka na vyhľadávanie. Ak je None, prejde všetky top značky (onboarding).
     """
-    print("🚗 CarScraper Pro - Spúšťam scraping...")
+    print(f"🚗 CarScraper Pro - Spúšťam {'onboarding' if not brand else 'scraping pre ' + brand}...")
     
     with app.app_context():
         # Nájdeme alebo vytvoríme CarScraper Pro projekt
         if user_id:
-            # Hľadáme projekt pre konkrétneho používateľa
             project = Project.query.filter_by(name='CarScraper Pro', user_id=user_id).first()
         else:
-            # Fallback na admin používateľa (pre kompatibilitu)
             project = Project.query.filter_by(name='CarScraper Pro').first()
         
         if not project:
-            # Vytvoríme projekt
-            from app import User
-            if user_id:
-                target_user = User.query.get(user_id)
-            else:
-                target_user = User.query.filter_by(username='admin').first()
+            User = main_app.User
+            target_user = User.query.get(user_id) if user_id else User.query.filter_by(username='admin').first()
             
             if not target_user:
                 print("❌ Používateľ neexistuje!")
@@ -251,27 +266,42 @@ def main(user_id=None):
             
             # type: ignore[call-arg]
             project = Project(
-                name='CarScraper Pro',  # type: ignore[arg-type]
-                api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
-                is_active=True,  # type: ignore[arg-type]
-                user_id=target_user.id  # type: ignore[arg-type]
+                name='CarScraper Pro',
+                api_key=os.urandom(24).hex(),
+                is_active=True,
+                user_id=target_user.id
             )
             db.session.add(project)
             db.session.commit()
-            print(f"✅ Vytvorený projekt CarScraper Pro (ID: {project.id}) pre používateľa {target_user.username}")
+            print(f"✅ Vytvorený projekt CarScraper Pro (ID: {project.id})")
+
+        # Rozhodovanie o značkách
+        brands_to_process = [brand] if brand else POPULAR_BRANDS
+        total_saved = 0
         
-        # Scraping
-        listings = scrape_bazos()
-        
-        if not listings:
-            print("❌ Žiadne inzeráty na spracovanie")
-            return
-        
-        # Uloženie do DB
-        saved = save_deals_to_db(listings, project.id)
-        
-        print(f"✅ Hotovo! Spracovaných {len(listings)} inzerátov, uložených {saved} nových")
+        for b in brands_to_process:
+            print(f"🔍 Spracovávam značku: {b}...")
+            # Scraping (limitujeme interne v scraperoch alebo manuálne)
+            # scrape_bazos používa unified, ktorý by mal rešpektovať dotaz
+            listings = scrape_bazos(search_query=b.lower())
+            
+            if listings:
+                # Uložíme max 10 pre túto značku (ak je to onboarding)
+                to_save = listings[:10] if not brand else listings
+                saved = save_deals_to_db(to_save, project.id)
+                total_saved += saved
+                print(f"✅ [{b}] Nájdených {len(listings)}, uložených {saved} nových")
+            else:
+                print(f"⚠️ [{b}] Žiadne výsledky")
+            
+            # Pauza medzi značkami aby sme neboli zablokovaní
+            if len(brands_to_process) > 1:
+                time.sleep(1)
+
+        print(f"✅ Hotovo! Celkom uložených {total_saved} nových inzerátov")
 
 if __name__ == '__main__':
-    main()
+    # Ak je zadaný argument, použi ho ako značku
+    target_brand = sys.argv[1] if len(sys.argv) > 1 else None
+    main(brand=target_brand)
 

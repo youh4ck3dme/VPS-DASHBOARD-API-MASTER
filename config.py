@@ -38,3 +38,6 @@ class Config:
     PROXY_LIST = os.getenv('PROXY_LIST', '')  # Čiarkou oddelený zoznam proxy
     PROXY_FILE = os.getenv('PROXY_FILE', 'proxies.txt')  # Súbor s proxy (jeden na riadok)
     USE_PROXY = os.getenv('USE_PROXY', 'true').lower() == 'true'  # Zapnúť/vypnúť proxy
+    
+    # Scraper konfigurácia
+    SCRAPER_ENABLED = os.getenv('SCRAPER_ENABLED', 'True').lower() == 'true'

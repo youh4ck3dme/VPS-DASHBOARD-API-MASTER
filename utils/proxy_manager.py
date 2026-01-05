@@ -269,8 +269,8 @@ def safe_request(url: str, max_retries: int = 3, delay: float = 2.0, **kwargs) -
         try:
             session = proxy_manager.create_session(use_proxy=use_proxy)
             
-            # Náhodný delay (1-3 sekundy) pre simuláciu ľudského správania
-            time.sleep(random.uniform(1.0, 3.0))
+            # Náhodný delay (0.5-1.0 sekundy) pre 1-2 requesty za sekundu
+            time.sleep(random.uniform(0.5, 1.0))
             
             response = session.get(url, timeout=15, **kwargs)
             

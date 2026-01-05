@@ -58,7 +58,7 @@ def scrape_autosme(search_query="octavia", min_price=1000, max_price=30000) -> L
             "Accept-Language": "sk-SK,sk;q=0.9"
         }
         try:
-            time.sleep(random.uniform(2.0, 4.0))
+            time.sleep(random.uniform(0.5, 1.0))
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
         except Exception as e:
