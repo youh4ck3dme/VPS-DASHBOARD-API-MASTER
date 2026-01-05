@@ -3,9 +3,6 @@ KATEGÓRIA 4: CRUD OPERÁCIE TESTS
 Testy pre vytváranie, čítanie, aktualizáciu a mazanie projektov, platieb, automatizácií.
 """
 
-import pytest
-import os
-
 
 class TestProjectCRUD:
     """Testy pre CRUD operácie projektov"""
@@ -34,7 +31,7 @@ class TestProjectCRUD:
 
     def test_update_project(self, authenticated_client, test_project, app):
         """Test aktualizácie projektu"""
-        from app import db, Project
+        from app import Project
 
         response = authenticated_client.post(f'/projects/{test_project.id}/edit', data={
             'name': 'Updated Project Name',
@@ -47,12 +44,13 @@ class TestProjectCRUD:
         # Overenie v databáze
         with app.app_context():
             project = Project.query.get(test_project.id)
+            assert project is not None, "Projekt musí existovať"
             assert project.name == 'Updated Project Name'
             assert project.script_path == 'updated_script.py'
 
     def test_delete_project(self, authenticated_client, test_project, app):
         """Test vymazania projektu"""
-        from app import db, Project
+        from app import Project
 
         project_id = test_project.id
         response = authenticated_client.post(
@@ -62,8 +60,10 @@ class TestProjectCRUD:
 
         assert response.status_code == 200
 
-        # Overenie že projekt bol vymazaný
+        # Overenie že projekt bol vymazaný - refresh session aby sme videli zmeny
         with app.app_context():
+            from app import db
+            db.session.expire_all()  # Expire all objects to force refresh
             project = Project.query.get(project_id)
             assert project is None
 
@@ -80,10 +80,10 @@ class TestProjectCRUD:
         # Vytvoriť viacero projektov
         with app.app_context():
             for i in range(15):
-                project = Project(
-                    name=f'Project {i}',
-                    api_key=os.urandom(24).hex(),
-                    user_id=test_user.id
+                project = Project(  # type: ignore[call-arg]
+                    name=f'Project {i}',  # type: ignore[arg-type]
+                    api_key=os.urandom(24).hex(),  # type: ignore[arg-type]
+                    user_id=test_user.id  # type: ignore[arg-type]
                 )
                 db.session.add(project)
             db.session.commit()
@@ -119,10 +119,10 @@ class TestPaymentCRUD:
 
         # Vytvoriť platbu
         with app.app_context():
-            payment = Payment(
-                project_id=test_project.id,
-                amount=50.00,
-                gateway='stripe'
+            payment = Payment(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                amount=50.00,  # type: ignore[arg-type]
+                gateway='stripe'  # type: ignore[arg-type]
             )
             db.session.add(payment)
             db.session.commit()
@@ -135,15 +135,14 @@ class TestPaymentCRUD:
         from app import db, Payment
 
         with app.app_context():
-            payment = Payment(
-                project_id=test_project.id,
-                amount=100.00,
-                gateway='stripe',
-                status='pending'
+            payment = Payment(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                amount=100.00,  # type: ignore[arg-type]
+                gateway='stripe',  # type: ignore[arg-type]
+                status='pending'  # type: ignore[arg-type]
             )
             db.session.add(payment)
             db.session.commit()
-            payment_id = payment.id
 
         # Aktualizovať status (ak existuje endpoint)
         # Tento test závisí od implementácie
@@ -171,10 +170,10 @@ class TestAutomationCRUD:
 
         # Vytvoriť automatizáciu
         with app.app_context():
-            automation = Automation(
-                project_id=test_project.id,
-                script_name='test.py',
-                schedule='0 0 * * *'
+            automation = Automation(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                script_name='test.py',  # type: ignore[arg-type]
+                schedule='0 0 * * *'  # type: ignore[arg-type]
             )
             db.session.add(automation)
             db.session.commit()
@@ -187,14 +186,13 @@ class TestAutomationCRUD:
         from app import db, Automation
 
         with app.app_context():
-            automation = Automation(
-                project_id=test_project.id,
-                script_name='old_script.py',
-                schedule='0 0 * * *'
+            automation = Automation(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                script_name='old_script.py',  # type: ignore[arg-type]
+                schedule='0 0 * * *'  # type: ignore[arg-type]
             )
             db.session.add(automation)
             db.session.commit()
-            automation_id = automation.id
 
         # Aktualizovať automatizáciu (ak existuje endpoint)
         # Tento test závisí od implementácie
@@ -222,10 +220,10 @@ class TestAIRequestCRUD:
 
         # Vytvoriť AI požiadavku
         with app.app_context():
-            ai_request = AIRequest(
-                project_id=test_project.id,
-                prompt='Test prompt',
-                response='Test response'
+            ai_request = AIRequest(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                prompt='Test prompt',  # type: ignore[arg-type]
+                response='Test response'  # type: ignore[arg-type]
             )
             db.session.add(ai_request)
             db.session.commit()
@@ -239,7 +237,7 @@ class TestAPIKeyManagement:
 
     def test_regenerate_api_key(self, authenticated_client, test_project, app):
         """Test regenerácie API kľúča"""
-        from app import db, Project
+        from app import Project
 
         old_key = test_project.api_key
 
@@ -253,6 +251,7 @@ class TestAPIKeyManagement:
         # Overenie že kľúč bol zmenený
         with app.app_context():
             project = Project.query.get(test_project.id)
+            assert project is not None, "Projekt musí existovať"
             assert project.api_key != old_key
             assert len(project.api_key) == 48
 
@@ -283,10 +282,10 @@ class TestExportOperations:
 
         # Vytvoriť platbu
         with app.app_context():
-            payment = Payment(
-                project_id=test_project.id,
-                amount=100.00,
-                gateway='stripe'
+            payment = Payment(  # type: ignore[call-arg]
+                project_id=test_project.id,  # type: ignore[arg-type]
+                amount=100.00,  # type: ignore[arg-type]
+                gateway='stripe'  # type: ignore[arg-type]
             )
             db.session.add(payment)
             db.session.commit()
@@ -294,4 +293,3 @@ class TestExportOperations:
         response = authenticated_client.get('/export/payments')
         assert response.status_code == 200
         assert 'text/csv' in response.content_type or 'application/csv' in response.content_type
-

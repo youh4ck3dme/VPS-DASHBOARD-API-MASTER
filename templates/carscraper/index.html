@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}CarScraper Pro - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">🚗 CarScraper Pro</h1>
+                    <p class="text-muted mb-0">Inteligentné vyhľadávanie najlepších ponúk áut</p>
+                </div>
+                <div>
+                    <span
+                        class="badge bg-{{ 'success' if current_user.subscription_plan == 'pro' else 'primary' if current_user.subscription_plan == 'hobby' else 'secondary' }} fs-6">
+                        {{ current_user.subscription_plan|upper }} plán
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4" id="stats-container">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Celkom deals</h5>
+                    <h2 class="mb-0" id="stat-total">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">🔥 Super deals</h5>
+                    <h2 class="mb-0" id="stat-super">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">👍 Good deals</h5>
+                    <h2 class="mb-0" id="stat-good">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Scrapes dnes</h5>
+                    <h2 class="mb-0"><span id="stat-today">-</span> / <span id="stat-limit">-</span></h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🔍 Nové vyhľadávanie</h5>
+                </div>
+                <div class="card-body">
+                    <form id="scrape-form">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label">Značka</label>
+                                <input type="text" class="form-control" name="brand" placeholder="napr. Škoda">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Model</label>
+                                <input type="text" class="form-control" name="model" placeholder="napr. Octavia">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Max. cena (€)</label>
+                                <input type="number" class="form-control" name="max_price" value="15000">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Max. km</label>
+                                <input type="number" class="form-control" name="max_km" value="200000">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Min. rok</label>
+                                <input type="number" class="form-control" name="min_year" value="2015">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100" id="btn-scrape">
+                                    <span class="spinner-border spinner-border-sm d-none" id="scrape-spinner"></span>
+                                    Hľadať
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📋 Nájdené ponuky</h5>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block w-auto" id="filter-verdict">
+                            <option value="">Všetky</option>
+                            <option value="SUPER_DEAL">🔥 Super deals</option>
+                            <option value="GOOD_DEAL">👍 Good deals</option>
+                            <option value="OK">OK</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="deals-table">
+                            <thead>
+                                <tr>
+                                    <th>Obrázok</th>
+                                    <th>Názov</th>
+                                    <th>Cena</th>
+                                    <th>Kilometre</th>
+                                    <th>Rok</th>
+                                    <th>Skóre</th>
+                                    <th>Verdict</th>
+                                    <th>Akcie</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deals-body">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-5">
+                                        Zatiaľ žiadne deals. Spustite vyhľadávanie vyššie.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <nav id="pagination" class="d-none">
+                        <ul class="pagination justify-content-center">
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Load stats
+        loadStats();
+        loadDeals();
+
+        // Form submit
+        document.getElementById('scrape-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('btn-scrape');
+            const spinner = document.getElementById('scrape-spinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+
+            // Convert to numbers
+            data.max_price = parseInt(data.max_price) || 15000;
+            data.max_km = parseInt(data.max_km) || 200000;
+            data.min_year = parseInt(data.min_year) || 2015;
+
+            try {
+                const response = await fetch('/carscraper/api/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Nájdených ${result.total_found} inzerátov, uložených ${result.saved} nových.`);
+                    loadStats();
+                    loadDeals();
+                } else {
+                    alert('❌ Chyba: ' + (result.error || 'Neznáma chyba'));
+                }
+            } catch (err) {
+                alert('❌ Chyba: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        });
+
+        // Filter change
+        document.getElementById('filter-verdict').addEventListener('change', function () {
+            loadDeals(1, this.value);
+        });
+    });
+
+    async function loadStats() {
+        try {
+            const response = await fetch('/carscraper/api/stats');
+            const data = await response.json();
+
+            document.getElementById('stat-total').textContent = data.total_deals;
+            document.getElementById('stat-super').textContent = data.super_deals;
+            document.getElementById('stat-good').textContent = data.good_deals;
+            document.getElementById('stat-today').textContent = data.today_scrapes;
+            document.getElementById('stat-limit').textContent = data.scrape_limit;
+        } catch (err) {
+            console.error('Error loading stats:', err);
+        }
+    }
+
+    async function loadDeals(page = 1, verdict = '') {
+        try {
+            let url = `/carscraper/api/deals?page=${page}`;
+            if (verdict) url += `&verdict=${verdict}`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            const tbody = document.getElementById('deals-body');
+
+            if (data.deals.length === 0) {
+                tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        Žiadne deals nenájdené.
+                    </td>
+                </tr>
+            `;
+                return;
+            }
+
+            tbody.innerHTML = data.deals.map(deal => `
+            <tr>
+                <td>
+                    ${deal.image_url ? `<img src="${deal.image_url}" alt="" style="width:80px;height:60px;object-fit:cover;border-radius:4px;">` : '-'}
+                </td>
+                <td>
+                    <strong>${deal.title}</strong>
+                    <br><small class="text-muted">${deal.location || ''}</small>
+                </td>
+                <td><strong>${deal.price?.toLocaleString()} €</strong></td>
+                <td>${deal.km?.toLocaleString() || '-'} km</td>
+                <td>${deal.year || '-'}</td>
+                <td>
+                    <span class="badge bg-${deal.score > 1.5 ? 'success' : deal.score > 0.5 ? 'info' : 'secondary'}">
+                        ${deal.score?.toFixed(1) || '-'}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-${deal.verdict === 'SUPER_DEAL' ? 'success' : deal.verdict === 'GOOD_DEAL' ? 'info' : 'secondary'}">
+                        ${deal.verdict || '-'}
+                    </span>
+                </td>
+                <td>
+                    <a href="${deal.link}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        Otvoriť
+                    </a>
+                </td>
+            </tr>
+        `).join('');
+
+        } catch (err) {
+            console.error('Error loading deals:', err);
+        }
+    }
+</script>
+{% endblock %}

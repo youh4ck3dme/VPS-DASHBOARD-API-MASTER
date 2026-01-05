@@ -1,0 +1,39 @@
+{
+  "basic_info": {
+    "brand": "string",
+    "model": "string",
+    "generation": "string",
+    "year": "integer",
+    "km": "integer",
+    "fuel_type": "string (Diesel, Benzín, Hybrid, Elektro)",
+    "transmission": "string (Manuál, Automat)",
+    "power_kw": "integer",
+    "engine_size_ccm": "integer"
+  },
+  "technical_details": {
+    "drive_type": "string (FWD, RWD, 4x4)",
+    "body_style": "string (Sedan, Combi, SUV, Hatchback)",
+    "doors": "integer",
+    "seats": "integer",
+    "color": "string",
+    "vin": "string (optional)"
+  },
+  "condition": {
+    "service_history": "boolean",
+    "first_owner": "boolean",
+    "imported": "boolean",
+    "crashed": "boolean"
+  },
+  "equipment": {
+    "safety": ["string"],
+    "comfort": ["string"],
+    "multimedia": ["string"],
+    "other_features": ["string"]
+  },
+  "market_analysis": {
+    "ai_verdict": "string",
+    "suggested_price_max": "number",
+    "suggested_price_min": "number",
+    "risk_factors": ["string"]
+  }
+}

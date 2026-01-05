@@ -31,6 +31,8 @@ instance/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.production.local
 
 # Database
 *.db
@@ -96,3 +98,17 @@ node_modules/
 # Test results
 test-results/
 bosstest/
+
+# Vercel
+.vercel
+vercel.json.bak
+*.vercel.json
+
+# Build outputs
+frontend/dist/
+frontend/build/
+static/carscraper/
+
+# Environment specific
+.env.vercel
+.env.vercel.local

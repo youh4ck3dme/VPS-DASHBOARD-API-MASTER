@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Spustiť Scraping - CarScraper Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-0"><i class="fas fa-car"></i> CarScraper Pro - Spustenie Scrapingu</h1>
+        <p class="text-muted">Manuálne spustenie scraping pre získanie nových deals</p>
+    </div>
+    <div class="col-auto">
+        <a href="/carscraper" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Späť na CarScraper
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-sync"></i> Spustenie Scrapingu</h5>
+            </div>
+            <div class="card-body">
+                <div id="scraping-status" class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Klikni na tlačidlo nižšie pre spustenie scraping.
+                </div>
+                
+                <div id="scraping-result" style="display: none;"></div>
+                
+                <div class="d-grid gap-2">
+                    <button id="start-scraping-btn" class="btn btn-primary btn-lg" onclick="startScraping()">
+                        <i class="fas fa-play"></i> Spustiť Scraping
+                    </button>
+                </div>
+                
+                <hr>
+                
+                <div class="mt-3">
+                    <h6><i class="fas fa-info-circle"></i> Informácie</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Scraping stiahne najnovšie inzeráty z Bazoš.sk</li>
+                        <li><i class="fas fa-check text-success"></i> Automaticky analyzuje každý inzerát</li>
+                        <li><i class="fas fa-check text-success"></i> Uloží len nové deals (duplikáty sa preskočia)</li>
+                        <li><i class="fas fa-clock text-warning"></i> Scraping môže trvať 1-2 minúty</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startScraping() {
+    const btn = document.getElementById('start-scraping-btn');
+    const status = document.getElementById('scraping-status');
+    const result = document.getElementById('scraping-result');
+    
+    // Disable button
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Spúšťam scraping...';
+    
+    // Update status
+    status.className = 'alert alert-warning';
+    status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scraping prebieha, prosím počkaj...';
+    result.style.display = 'none';
+    
+    // Make API call
+    fetch('/api/carscraper/scrape', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> Spustiť Scraping';
+        
+        if (data.status === 'success') {
+            status.className = 'alert alert-success';
+            status.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
+            
+            result.style.display = 'block';
+            result.className = 'alert alert-success';
+            result.innerHTML = `
+                <h6><i class="fas fa-chart-bar"></i> Výsledky:</h6>
+                <ul class="mb-0">
+                    <li><strong>Nájdených deals:</strong> ${data.deals_found}</li>
+                    <li><strong>Uložených nových deals:</strong> ${data.deals_saved}</li>
+                </ul>
+                <div class="mt-3">
+                    <a href="/carscraper" class="btn btn-success">
+                        <i class="fas fa-car"></i> Zobraziť deals
+                    </a>
+                </div>
+            `;
+        } else if (data.status === 'warning') {
+            status.className = 'alert alert-warning';
+            status.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+        } else {
+            status.className = 'alert alert-danger';
+            status.innerHTML = `<i class="fas fa-times-circle"></i> Chyba: ${data.error || 'Neznáma chyba'}`;
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> Spustiť Scraping';
+        status.className = 'alert alert-danger';
+        status.innerHTML = `<i class="fas fa-times-circle"></i> Chyba pri komunikácii so serverom: ${error.message}`;
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}
+
